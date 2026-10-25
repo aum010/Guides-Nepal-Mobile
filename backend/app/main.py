@@ -12,7 +12,21 @@ from app.core.middleware import (
     InputValidationMiddleware,
     HTTPSEnforcementMiddleware,
 )
-from app.api.v1 import auth, bookings, public, ai, profile, admin, content, operations, host, host_guides, guide, experience_workflow, reviews
+from app.api.v1 import (
+    auth,
+    bookings,
+    public,
+    ai,
+    profile,
+    admin,
+    content,
+    operations,
+    host,
+    host_guides,
+    guide,
+    experience_workflow,
+    reviews,
+)
 import os
 import logging
 
@@ -58,9 +72,7 @@ app.include_router(
 )
 app.include_router(host.router, prefix=settings.API_V1_STR, tags=["host"])
 app.include_router(host_guides.router, prefix=settings.API_V1_STR, tags=["host-guides"])
-app.include_router(
-    guide.router, prefix=settings.API_V1_STR, tags=["guide"]
-)
+app.include_router(guide.router, prefix=settings.API_V1_STR, tags=["guide"])
 app.include_router(
     experience_workflow.router, prefix=settings.API_V1_STR, tags=["experience-workflow"]
 )
@@ -69,9 +81,7 @@ app.include_router(ai.router, prefix=f"{settings.API_V1_STR}/ai", tags=["ai"])
 app.include_router(
     profile.router, prefix=f"{settings.API_V1_STR}/profile", tags=["profile"]
 )
-app.include_router(
-    admin.router, prefix=f"{settings.API_V1_STR}/admin", tags=["admin"]
-)
+app.include_router(admin.router, prefix=f"{settings.API_V1_STR}/admin", tags=["admin"])
 app.include_router(
     content.router, prefix=f"{settings.API_V1_STR}/content", tags=["content"]
 )
@@ -104,10 +114,25 @@ def ensure_database_schema() -> None:
     try:
         Base.metadata.create_all(bind=engine)
         inspector = inspect(engine)
-        booking_columns = {column["name"] for column in inspector.get_columns("bookings")}
+        booking_columns = {
+            column["name"] for column in inspector.get_columns("bookings")
+        }
         if "guide_user_id" not in booking_columns:
             with engine.begin() as connection:
-                connection.execute(text("ALTER TABLE bookings ADD COLUMN guide_user_id INTEGER"))
+                connection.execute(
+                    text("ALTER TABLE bookings ADD COLUMN guide_user_id INTEGER")
+                )
+        # Existing databases predate `create_all` support for new columns.
+        user_columns = {column["name"] for column in inspector.get_columns("users")}
+        for name in ("token_version", "session_version"):
+            if name not in user_columns:
+                with engine.begin() as connection:
+                    connection.execute(
+                        text(
+                            f"ALTER TABLE users ADD COLUMN {name} "
+                            "INTEGER NOT NULL DEFAULT 0"
+                        )
+                    )
         logger.info("Database schema verified/created successfully.")
     except Exception as e:  # pragma: no cover - depends on DB availability
         logger.error(f"Could not create/verify database schema: {e}")

@@ -1,4 +1,4 @@
-from typing import List, Optional
+from typing import List
 from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.orm import Session, joinedload
 
@@ -8,7 +8,12 @@ from app.core.roles import TRAVELER
 from app.models.booking import Booking, BookingStatus
 from app.models.review import Review
 from app.models.user import User
-from app.schemas.review import ReviewCreate, ReviewUpdate, ReviewResponse, CanReviewResponse
+from app.schemas.review import (
+    ReviewCreate,
+    ReviewUpdate,
+    ReviewResponse,
+    CanReviewResponse,
+)
 
 router = APIRouter()
 
@@ -163,7 +168,9 @@ def update_review(
 
     review = db.query(Review).filter(Review.id == review_id).first()
     if not review:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Review not found")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Review not found"
+        )
     if review.user_id != current_user.id:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
@@ -190,7 +197,9 @@ def delete_review(
 
     review = db.query(Review).filter(Review.id == review_id).first()
     if not review:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Review not found")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Review not found"
+        )
     if review.user_id != current_user.id:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,

@@ -7,18 +7,14 @@ from app.models.user import User
 from app.models.bookmark import Bookmark
 from app.schemas.profile import ProfileUpdate, BookmarkCreate, BookmarkResponse
 from app.services.bookmark_service import BookmarkService
-from app.core.security import get_user_id_from_token
+from app.core.dependencies import authenticate_token
 
 
-def get_current_user_id(request: Request) -> int:
+def get_current_user_id(request: Request, db: Session = Depends(get_db)) -> int:
     auth = request.headers.get("Authorization")
     if not auth or not auth.lower().startswith("bearer "):
         raise HTTPException(status_code=401, detail="Not authenticated")
-    token = auth.split(" ", 1)[1]
-    uid = get_user_id_from_token(token)
-    if uid is None:
-        raise HTTPException(status_code=401, detail="Invalid token")
-    return uid
+    return authenticate_token(db, auth.split(" ", 1)[1]).id
 
 
 router = APIRouter()

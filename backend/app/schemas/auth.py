@@ -76,6 +76,17 @@ class Token(BaseModel):
     user: UserResponse
 
 
+class RefreshRequest(BaseModel):
+    """Refresh-token exchange body for `POST /auth/refresh`.
+
+    Access tokens are short-lived (see ACCESS_TOKEN_EXPIRE_MINUTES); clients
+    send their stored refresh token here to obtain a fresh access/refresh pair
+    without forcing the user to sign in again.
+    """
+
+    refresh_token: str
+
+
 class ForgotPasswordRequest(BaseModel):
     """Request body for the forgot-password endpoint.
 

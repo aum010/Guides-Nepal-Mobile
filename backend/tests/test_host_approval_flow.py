@@ -10,7 +10,6 @@ Covers:
 
 from app.core.roles import ADMIN, HOST, REGIONAL_HEAD
 from app.core.security import create_access_token, get_password_hash
-from app.models.host_application import HostApplication
 from app.models.user import User
 
 STRONG_PASSWORD = "HostPass123!"

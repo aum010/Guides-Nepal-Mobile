@@ -9,7 +9,7 @@ frontend ``BecomeGuidePage`` collects.  Ownership is tracked in
 so travelers see the assigned guide on the frontend.
 """
 
-from sqlalchemy import Boolean, Column, DateTime, ForeignKey, Integer, String, Text, JSON
+from sqlalchemy import Boolean, Column, DateTime, ForeignKey, Integer, String, JSON
 from sqlalchemy.sql import func
 
 from app.core.database import Base
@@ -44,7 +44,9 @@ class HostExperienceGuide(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     host_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
-    experience_id = Column(Integer, ForeignKey("host_experiences.id"), nullable=False, index=True)
+    experience_id = Column(
+        Integer, ForeignKey("host_experiences.id"), nullable=False, index=True
+    )
     guide_id = Column(Integer, ForeignKey("guides.id"), nullable=False, index=True)
     is_primary = Column(Boolean, nullable=False, default=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())

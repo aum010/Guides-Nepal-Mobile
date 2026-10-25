@@ -4,28 +4,63 @@ from sqlalchemy.orm import Session
 from typing import Optional
 
 from app.core.database import get_db
-from app.core.security import get_user_id_from_token
+from app.core.security import decode_access_token
 from app.core.roles import has_access
 from app.models.user import User
+
+
+def authenticate_token(db: Session, token: str) -> User:
+    """Resolve a bearer token to its user, rejecting revoked tokens.
+
+    The token's `ver` claim must match the user's `token_version`; signing out
+    bumps the stored counter, so access tokens issued before that point stop
+    working immediately instead of lingering until they expire.
+    """
+    payload = decode_access_token(token)
+    if payload is None:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token"
+        )
+
+    try:
+        user_id = int(payload.get("sub", ""))
+    except (TypeError, ValueError):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token"
+        )
+
+    user = db.get(User, user_id)
+    if user is None:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED, detail="User not found"
+        )
+
+    if int(payload.get("ver", 0) or 0) != int(user.token_version or 0):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Your session has ended. Please sign in again.",
+        )
+
+    return user
 
 
 def get_current_user(request: Request, db: Session = Depends(get_db)) -> User:
     auth = request.headers.get("Authorization")
     if not auth or not auth.lower().startswith("bearer "):
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Not authenticated")
-    token = auth.split(" ", 1)[1]
-    user_id = get_user_id_from_token(token)
-    if user_id is None:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token")
-    user = db.get(User, user_id)
-    if user is None:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="User not found")
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED, detail="Not authenticated"
+        )
+    user = authenticate_token(db, auth.split(" ", 1)[1])
     if not user.is_active:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Inactive user")
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN, detail="Inactive user"
+        )
     return user
 
 
-def get_optional_user(request: Request, db: Session = Depends(get_db)) -> Optional[User]:
+def get_optional_user(
+    request: Request, db: Session = Depends(get_db)
+) -> Optional[User]:
     """Best-effort authentication.
 
     Returns the authenticated user when a valid bearer token is supplied and

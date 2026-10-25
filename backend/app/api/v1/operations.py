@@ -15,12 +15,11 @@ row then works on the Host Dashboard and the Host Frontend.
 """
 
 import hashlib
-import secrets
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel, EmailStr
-from sqlalchemy import inspect, text
+from sqlalchemy import func, inspect, text
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
@@ -80,7 +79,9 @@ def _ensure_host_application_columns(db: Session) -> None:
             "reviewed_at": "DATETIME",
         }.items():
             if name not in existing:
-                db.execute(text(f"ALTER TABLE host_applications ADD COLUMN {name} {ddl}"))
+                db.execute(
+                    text(f"ALTER TABLE host_applications ADD COLUMN {name} {ddl}")
+                )
         db.commit()
     except Exception:
         db.rollback()
@@ -204,7 +205,9 @@ def list_host_applications(
 
 
 @router.post("/host-applications", status_code=status.HTTP_201_CREATED)
-def create_host_application(payload: HostApplicationCreate, db: Session = Depends(get_db)):
+def create_host_application(
+    payload: HostApplicationCreate, db: Session = Depends(get_db)
+):
     _ensure_host_application_columns(db)
     data = payload.model_dump()
     plaintext_password = data.pop("password", None)
@@ -234,7 +237,11 @@ def review_host_application(
     if app is None:
         raise HTTPException(status_code=404, detail="Host application not found")
     # Regional heads may only act within their own region.
-    if current_user.role == REGIONAL_HEAD and current_user.region and app.region != current_user.region:
+    if (
+        current_user.role == REGIONAL_HEAD
+        and current_user.region
+        and app.region != current_user.region
+    ):
         raise HTTPException(status_code=403, detail="Application outside your region")
 
     # Record the reviewer's decision on the application row itself.
@@ -323,7 +330,9 @@ def list_guide_applications(
 
 
 @router.post("/guide-applications", status_code=status.HTTP_201_CREATED)
-def create_guide_application(payload: GuideApplicationCreate, db: Session = Depends(get_db)):
+def create_guide_application(
+    payload: GuideApplicationCreate, db: Session = Depends(get_db)
+):
     app = GuideApplication(**payload.model_dump(), status="pending")
     db.add(app)
     db.commit()
@@ -344,7 +353,11 @@ def review_guide_application(
     if app is None:
         raise HTTPException(status_code=404, detail="Guide application not found")
     # Regional heads may only act within their own region.
-    if current_user.role == REGIONAL_HEAD and current_user.region and app.region != current_user.region:
+    if (
+        current_user.role == REGIONAL_HEAD
+        and current_user.region
+        and app.region != current_user.region
+    ):
         raise HTTPException(status_code=403, detail="Application outside your region")
     app.status = payload.status
     db.commit()

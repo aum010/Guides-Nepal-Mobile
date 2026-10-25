@@ -2,10 +2,11 @@
 Security utilities for authentication, password hashing, and token management
 """
 
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Any, Optional, Union, cast
 import re
 import logging
+from uuid import uuid4
 
 import bcrypt
 from jose import jwt
@@ -51,17 +52,29 @@ def validate_password_strength(password: str) -> tuple[bool, str]:
 
 
 def create_access_token(
-    subject: Union[str, Any], expires_delta: Optional[timedelta] = None
+    subject: Union[str, Any],
+    expires_delta: Optional[timedelta] = None,
+    token_version: int = 0,
 ) -> str:
-    """Create JWT access token with expiration"""
+    """Create JWT access token with expiration.
+
+    `token_version` is compared against the user's stored counter on every
+    authenticated request, so ending a session can invalidate access tokens
+    that were already handed out (see `POST /auth/logout`).
+    """
     if expires_delta:
-        expire = datetime.utcnow() + expires_delta
+        expire = datetime.now(timezone.utc).replace(tzinfo=None) + expires_delta
     else:
-        expire = datetime.utcnow() + timedelta(
+        expire = datetime.now(timezone.utc).replace(tzinfo=None) + timedelta(
             minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES
         )
 
-    to_encode = {"exp": expire, "sub": str(subject), "type": "access"}
+    to_encode = {
+        "exp": expire,
+        "sub": str(subject),
+        "type": "access",
+        "ver": int(token_version or 0),
+    }
     encoded_jwt = jwt.encode(
         to_encode, settings.SECRET_KEY, algorithm=settings.ALGORITHM
     )
@@ -69,15 +82,31 @@ def create_access_token(
 
 
 def create_refresh_token(
-    subject: Union[str, Any], expires_delta: Optional[timedelta] = None
+    subject: Union[str, Any],
+    expires_delta: Optional[timedelta] = None,
+    session_version: int = 0,
 ) -> str:
-    """Create JWT refresh token with longer expiration"""
-    if expires_delta:
-        expire = datetime.utcnow() + expires_delta
-    else:
-        expire = datetime.utcnow() + timedelta(days=settings.REFRESH_TOKEN_EXPIRE_DAYS)
+    """Create JWT refresh token with longer expiration.
 
-    to_encode = {"exp": expire, "sub": str(subject), "type": "refresh"}
+    A unique `jti` identifies the token so it can be revoked individually at
+    sign-out (see `app/models/token_revocation.py`). `session_version` is
+    compared against the user's stored counter on every exchange, so a
+    "sign out everywhere" invalidates all refresh tokens already issued.
+    """
+    if expires_delta:
+        expire = datetime.now(timezone.utc).replace(tzinfo=None) + expires_delta
+    else:
+        expire = datetime.now(timezone.utc).replace(tzinfo=None) + timedelta(
+            days=settings.REFRESH_TOKEN_EXPIRE_DAYS
+        )
+
+    to_encode = {
+        "exp": expire,
+        "sub": str(subject),
+        "type": "refresh",
+        "jti": uuid4().hex,
+        "sver": int(session_version or 0),
+    }
     encoded_jwt = jwt.encode(
         to_encode, settings.SECRET_KEY, algorithm=settings.ALGORITHM
     )
@@ -102,34 +131,42 @@ def get_password_hash(password: str) -> str:
     return hashed.decode("utf-8")
 
 
-def get_user_id_from_token(token: str) -> Optional[int]:
-    """Extract and verify user ID from JWT token"""
+def decode_access_token(token: str) -> Optional[dict]:
+    """Return the claims of a valid access token, else `None`.
+
+    Rejects expired tokens, tampered tokens and tokens of another type. The
+    caller is responsible for checking the claims against stored state (e.g.
+    `ver` against `User.token_version`).
+    """
     try:
         payload = jwt.decode(
             token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM]
         )
-
-        # Verify token type is access token
-        token_type = payload.get("type")
-        expected_type = "access"  # nosec B105 - token-type literal, not a password
-        if token_type != expected_type:
-            logger.warning(f"Invalid token type: {token_type}")
-            return None
-
-        sub = payload.get("sub")
-        if sub is None:
-            return None
-
-        try:
-            return int(sub)
-        except ValueError:
-            logger.warning(f"Invalid user ID in token: {sub}")
-            return None
     except JWTError as e:
         logger.debug(f"JWT error: {e}")
         return None
-    except Exception as e:
-        logger.error(f"Unexpected error in token verification: {e}")
+
+    expected_type = "access"  # nosec B105 - token-type literal, not a password
+    if payload.get("type") != expected_type:
+        logger.warning(f"Invalid token type: {payload.get('type')}")
+        return None
+    return payload
+
+
+def get_user_id_from_token(token: str) -> Optional[int]:
+    """Extract and verify user ID from JWT token"""
+    payload = decode_access_token(token)
+    if payload is None:
+        return None
+
+    sub = payload.get("sub")
+    if sub is None:
+        return None
+
+    try:
+        return int(sub)
+    except (TypeError, ValueError):
+        logger.warning(f"Invalid user ID in token: {sub}")
         return None
 
 
@@ -147,7 +184,9 @@ def is_token_expired(token: str) -> bool:
         exp = payload.get("exp")
         if exp is None:
             return True
-        return datetime.utcfromtimestamp(exp) < datetime.utcnow()
+        # Pure instant comparison — both sides aware, same truth value as
+        # the old naive-UTC pair, without the deprecated constructors.
+        return datetime.fromtimestamp(exp, timezone.utc) < datetime.now(timezone.utc)
     except JWTError:
         return True
 

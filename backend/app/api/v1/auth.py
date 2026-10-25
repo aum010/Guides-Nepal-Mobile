@@ -8,15 +8,20 @@ from app.schemas.auth import (
     UserCreate,
     UserLogin,
     Token,
+    RefreshRequest,
     ForgotPasswordRequest,
     SyncPasswordRequest,
     ChangePasswordRequest,
 )
+from jose import jwt
+from jose.exceptions import JWTError
 from app.services.auth_service import AuthService
 from app.core.config import settings, Settings
 from app.core.dependencies import get_current_user
 from app.core.roles import ADMIN, normalize_role
+from app.models.token_revocation import RevokedToken
 from app.models.user import User
+from datetime import datetime, timezone
 import httpx
 import urllib.parse
 import logging
@@ -176,6 +181,151 @@ def login(login_data: UserLogin, db: Session = Depends(get_db)) -> dict:
     return auth_service.create_tokens(user)
 
 
+@router.post("/refresh", response_model=Token)
+def refresh_tokens(request: RefreshRequest, db: Session = Depends(get_db)) -> dict:
+    """Exchange a valid refresh token for a fresh access/refresh pair.
+
+    Access tokens are short-lived (30 minutes by default); clients call this
+    to extend a session without forcing a re-login. The refresh token is a
+    JWT of type `refresh` minted at login/register. An access token, a
+    tampered token or a token for an inactive/deleted user is rejected 401.
+    """
+    try:
+        payload = jwt.decode(
+            request.refresh_token,
+            settings.SECRET_KEY,
+            algorithms=[settings.ALGORITHM],
+        )
+    except JWTError:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid refresh token",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
+    if payload.get("type") != "refresh":
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid refresh token type",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
+    # A token revoked by signing out must never mint another session.
+    jti = payload.get("jti")
+    if jti and (
+        db.query(RevokedToken).filter(RevokedToken.jti == jti).first() is not None
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Refresh token has been revoked",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
+    try:
+        user_id = int(payload.get("sub", ""))
+    except (TypeError, ValueError):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid refresh token subject",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
+    user = db.get(User, user_id)
+    if user is None or not getattr(user, "is_active", False):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="User not found or inactive",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
+    # "Sign out everywhere" bumps the stored session version; tokens minted
+    # before that point can no longer be exchanged.
+    if int(payload.get("sver", 0) or 0) != int(user.session_version or 0):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Your session has ended. Please sign in again.",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
+    return AuthService(db).create_tokens(user)
+
+
+@router.post("/logout-all")
+def logout_all(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> dict:
+    """End every session for the signed-in account.
+
+    Bumps both counters: `token_version` invalidates every access token and
+    `session_version` invalidates every refresh token issued so far (each
+    refresh token carries the version it was minted with). A later sign-in
+    mints tokens at the new versions. Requires a valid access token, so the
+    caller should be signed in.
+    """
+    current_user.token_version = (current_user.token_version or 0) + 1
+    current_user.session_version = (current_user.session_version or 0) + 1
+    db.add(current_user)
+    db.commit()
+    return {"status": "ok"}
+
+
+@router.post("/logout")
+def logout(request: RefreshRequest, db: Session = Depends(get_db)) -> dict:
+    """Revoke the presented refresh token.
+
+    Best-effort and idempotent: it always answers 200 so signing out can
+    never fail in the client, and an already-expired or unreadable token is
+    simply ignored (it cannot be used anyway).
+
+    Two things happen for a live token:
+
+    * its `jti` is recorded, so `/auth/refresh` refuses it from now on;
+    * the owner's `token_version` is bumped, so access tokens already handed
+      out stop working immediately instead of lingering until they expire.
+      Other devices are unaffected in practice: their refresh tokens remain
+      valid and the client renews transparently on the next 401.
+    """
+    try:
+        payload = jwt.decode(
+            request.refresh_token,
+            settings.SECRET_KEY,
+            algorithms=[settings.ALGORITHM],
+        )
+    except JWTError:
+        return {"status": "ok"}
+
+    if payload.get("type") != "refresh":
+        return {"status": "ok"}
+
+    jti = payload.get("jti")
+    exp = payload.get("exp")
+    if jti and exp:
+        # Naive UTC, matching the column type and every other timestamp
+        # this module writes.
+        now = datetime.now(timezone.utc).replace(tzinfo=None)
+        expires_at = datetime.fromtimestamp(exp, timezone.utc).replace(tzinfo=None)
+        if expires_at > now:
+            if db.query(RevokedToken).filter(RevokedToken.jti == jti).first() is None:
+                db.add(RevokedToken(jti=jti, expires_at=expires_at))
+
+            # Invalidate access tokens that are already out in the world.
+            try:
+                owner_id = int(payload.get("sub", ""))
+            except (TypeError, ValueError):
+                owner_id = None
+            if owner_id is not None:
+                owner = db.get(User, owner_id)
+                if owner is not None:
+                    owner.token_version = (owner.token_version or 0) + 1
+
+            # Prune rows for tokens that have expired anyway.
+            db.query(RevokedToken).filter(RevokedToken.expires_at < now).delete()
+            db.commit()
+
+    return {"status": "ok"}
+
+
 @router.post("/change-password")
 def change_password(
     request: ChangePasswordRequest,
@@ -191,7 +341,9 @@ def change_password(
     auth_service = AuthService(db)
 
     # Ensure the current password matches what we have on file.
-    if not auth_service.authenticate_user(str(current_user.email), request.current_password):
+    if not auth_service.authenticate_user(
+        str(current_user.email), request.current_password
+    ):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Current password is incorrect",
@@ -371,7 +523,12 @@ async def sync_password(
 @router.get("/oauth/google/start")
 def oauth_google_start() -> RedirectResponse:
     if not settings.GOOGLE_CLIENT_ID or not settings.GOOGLE_REDIRECT_URI:
-        raise HTTPException(status_code=500, detail="Google OAuth not configured")
+        # Unconfigured social login is an unavailable feature on this
+        # deployment, not a server fault — clients get a clean 404 while
+        # configured deployments still issue their 307 redirect.
+        raise HTTPException(
+            status_code=404, detail="Google OAuth is not configured on this server"
+        )
     params = {
         "client_id": settings.GOOGLE_CLIENT_ID,
         "redirect_uri": settings.GOOGLE_REDIRECT_URI,
@@ -454,7 +611,11 @@ async def oauth_google_callback(
 @router.get("/oauth/facebook/start")
 def oauth_facebook_start() -> RedirectResponse:
     if not settings.FACEBOOK_CLIENT_ID or not settings.FACEBOOK_REDIRECT_URI:
-        raise HTTPException(status_code=500, detail="Facebook OAuth not configured")
+        # See the Google start handler: absent config means the feature is
+        # not offered here (404), not that the request itself failed.
+        raise HTTPException(
+            status_code=404, detail="Facebook OAuth is not configured on this server"
+        )
     params = {
         "client_id": settings.FACEBOOK_CLIENT_ID,
         "redirect_uri": settings.FACEBOOK_REDIRECT_URI,

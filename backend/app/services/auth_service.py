@@ -63,9 +63,13 @@ class AuthService:
                     user = users[0]
                     result["exists"] = True
                     result["user_id"] = user.get("id")
-                    result["email_confirmed"] = user.get("email_confirmed_at") is not None
+                    result["email_confirmed"] = (
+                        user.get("email_confirmed_at") is not None
+                    )
             else:
-                result["error"] = f"Supabase returned status {resp.status_code}: {resp.text}"
+                result["error"] = (
+                    f"Supabase returned status {resp.status_code}: {resp.text}"
+                )
         except httpx.HTTPError as e:
             result["error"] = str(e)
         return result
@@ -230,8 +234,12 @@ class AuthService:
         # (is_active -> isActive) is handled correctly.
         user_response = UserResponse.model_validate(user)
         return {
-            "access_token": create_access_token(user.id),
-            "refresh_token": create_refresh_token(user.id),
+            "access_token": create_access_token(
+                user.id, token_version=getattr(user, "token_version", 0) or 0
+            ),
+            "refresh_token": create_refresh_token(
+                user.id, session_version=getattr(user, "session_version", 0) or 0
+            ),
             "token_type": "bearer",  # nosec
             "user": user_response,
         }

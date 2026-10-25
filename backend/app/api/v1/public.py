@@ -15,7 +15,9 @@ from app.models.host_application import HostApplication
 from app.models.host_guide import HostExperienceGuide
 from app.models.booking import HostExperience
 from app.models.support_ticket import SupportTicket
+from app.schemas.guide_dashboard import PublicGuideUpdate
 from app.schemas.public import ExperienceResponse, GuideResponse
+from app.services.guide_dashboard_service import GuideDashboardService
 from app.services.guide_service import GuideService
 
 router = APIRouter()
@@ -120,24 +122,66 @@ def submit_guide_application(
 
 @router.post("/host-applications/submit", status_code=status.HTTP_201_CREATED)
 async def submit_host_application_wizard(
-    first_name: str = Form(...), last_name: str = Form(...), date_of_birth: str = Form(...),
-    nationality: str = Form(...), email: str = Form(...), phone: str = Form(...), address: str = Form(...),
-    city: str = Form(...), district: str = Form(...), languages: str = Form(...), host_type: str = Form(...),
-    business_name: str = Form(""), registration_number: str = Form(""), primary_city: str = Form(...),
-    years_experience: str = Form(...), expertise: str = Form(...), experience: str = Form(...),
-    proposedTitle: str = Form(...), proposedDescription: str = Form(...), proposedCategory: str = Form(...),
-    proposedDuration: str = Form(...), maxGuests: str = Form("8"), price: str = Form(...), availability: str = Form(...),
+    first_name: str = Form(...),
+    last_name: str = Form(...),
+    date_of_birth: str = Form(...),
+    nationality: str = Form(...),
+    email: str = Form(...),
+    phone: str = Form(...),
+    address: str = Form(...),
+    city: str = Form(...),
+    district: str = Form(...),
+    languages: str = Form(...),
+    host_type: str = Form(...),
+    business_name: str = Form(""),
+    registration_number: str = Form(""),
+    primary_city: str = Form(...),
+    years_experience: str = Form(...),
+    expertise: str = Form(...),
+    experience: str = Form(...),
+    proposedTitle: str = Form(...),
+    proposedDescription: str = Form(...),
+    proposedCategory: str = Form(...),
+    proposedDuration: str = Form(...),
+    maxGuests: str = Form("8"),
+    price: str = Form(...),
+    availability: str = Form(...),
     password: str = Form(...),
-    terms: bool = Form(False), privacy: bool = Form(False), accuracy: bool = Form(False),
-    identity: UploadFile = File(None), photo: UploadFile = File(None), license: UploadFile = File(None), certificate: UploadFile = File(None),
+    terms: bool = Form(False),
+    privacy: bool = Form(False),
+    accuracy: bool = Form(False),
+    identity: UploadFile = File(None),
+    photo: UploadFile = File(None),
+    license: UploadFile = File(None),
+    certificate: UploadFile = File(None),
     db: Session = Depends(get_db),
 ):
-    if not all([first_name.strip(), last_name.strip(), date_of_birth, nationality.strip(), email.strip(), phone.strip(), address.strip(), city.strip(), district.strip(), primary_city.strip(), proposedTitle.strip(), proposedDescription.strip()]):
-        raise HTTPException(status_code=422, detail="Please complete all required fields")
+    if not all(
+        [
+            first_name.strip(),
+            last_name.strip(),
+            date_of_birth,
+            nationality.strip(),
+            email.strip(),
+            phone.strip(),
+            address.strip(),
+            city.strip(),
+            district.strip(),
+            primary_city.strip(),
+            proposedTitle.strip(),
+            proposedDescription.strip(),
+        ]
+    ):
+        raise HTTPException(
+            status_code=422, detail="Please complete all required fields"
+        )
     if not (terms and privacy and accuracy):
         raise HTTPException(status_code=422, detail="All declarations must be accepted")
     if len(experience.strip()) < 50 or len(proposedDescription.strip()) < 30:
-        raise HTTPException(status_code=422, detail="Please provide more detail in the experience sections")
+        raise HTTPException(
+            status_code=422,
+            detail="Please provide more detail in the experience sections",
+        )
     # Capture the applicant's chosen password now, but only as a hash on the
     # application row. The real login account is minted when a regional head
     # or admin approves (operations.review_host_application).
@@ -146,19 +190,72 @@ async def submit_host_application_wizard(
         raise HTTPException(status_code=422, detail=pw_msg)
     password_hash = get_password_hash(password)
     documents = {}
-    upload_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../private_host_applications"))
+    upload_root = os.path.abspath(
+        os.path.join(os.path.dirname(__file__), "../../private_host_applications")
+    )
     os.makedirs(upload_root, exist_ok=True)
-    for key, upload in {"identity": identity, "photo": photo, "license": license, "certificate": certificate}.items():
-        if not upload: continue
+    for key, upload in {
+        "identity": identity,
+        "photo": photo,
+        "license": license,
+        "certificate": certificate,
+    }.items():
+        if not upload:
+            continue
         content = await upload.read()
-        if len(content) > 10 * 1024 * 1024 or upload.content_type not in {"application/pdf", "image/jpeg", "image/png"}:
-            raise HTTPException(status_code=422, detail=f"{key}: use PDF, JPG, or PNG files under 10 MB")
-        filename = f"{uuid.uuid4().hex}_{os.path.basename(upload.filename or 'document')}"
-        with open(os.path.join(upload_root, filename), "wb") as target: target.write(content)
+        if len(content) > 10 * 1024 * 1024 or upload.content_type not in {
+            "application/pdf",
+            "image/jpeg",
+            "image/png",
+        }:
+            raise HTTPException(
+                status_code=422, detail=f"{key}: use PDF, JPG, or PNG files under 10 MB"
+            )
+        filename = (
+            f"{uuid.uuid4().hex}_{os.path.basename(upload.filename or 'document')}"
+        )
+        with open(os.path.join(upload_root, filename), "wb") as target:
+            target.write(content)
         documents[key] = filename
-    application = HostApplication(host_name=f"{first_name} {last_name}", email=email, phone=phone, city=city, region=district, experience=json.dumps({"host_type":host_type,"business_name":business_name,"registration_number":registration_number,"primary_city":primary_city,"years_experience":years_experience,"expertise":expertise,"languages":languages,"proposed_experience":{"title":proposedTitle,"description":proposedDescription,"category":proposedCategory,"duration":proposedDuration,"max_guests":maxGuests,"price":price,"availability":availability},"documents":documents}, ensure_ascii=False), credential_password_hash=password_hash, status="pending")
-    db.add(application); db.commit(); db.refresh(application)
-    return {"id": application.id, "status": application.status, "message": "Application received"}
+    application = HostApplication(
+        host_name=f"{first_name} {last_name}",
+        email=email,
+        phone=phone,
+        city=city,
+        region=district,
+        experience=json.dumps(
+            {
+                "host_type": host_type,
+                "business_name": business_name,
+                "registration_number": registration_number,
+                "primary_city": primary_city,
+                "years_experience": years_experience,
+                "expertise": expertise,
+                "languages": languages,
+                "proposed_experience": {
+                    "title": proposedTitle,
+                    "description": proposedDescription,
+                    "category": proposedCategory,
+                    "duration": proposedDuration,
+                    "max_guests": maxGuests,
+                    "price": price,
+                    "availability": availability,
+                },
+                "documents": documents,
+            },
+            ensure_ascii=False,
+        ),
+        credential_password_hash=password_hash,
+        status="pending",
+    )
+    db.add(application)
+    db.commit()
+    db.refresh(application)
+    return {
+        "id": application.id,
+        "status": application.status,
+        "message": "Application received",
+    }
 
 
 # Mock Data to match frontend types exactly
@@ -240,7 +337,7 @@ MOCK_EXPERIENCES = [
         "id": 2,
         "slug": "kathmandu-hidden-gems",
         "title": "Hidden Gems of Kathmandu",
-        "heroImage": "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80",
+        "heroImage": "https://images.unsplash.com/photo-1605640840605-14ac1855827b?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80",
         "description": "Discover secret temples, hidden courtyards, and local eateries that most tourists never see.",
         "price": 35.0,
         "duration": "3 hours",
@@ -268,7 +365,7 @@ MOCK_EXPERIENCES = [
         "id": 4,
         "slug": "pokhara-sunrise-trek",
         "title": "Sarangkot Sunrise Trek",
-        "heroImage": "https://images.unsplash.com/photo-1559827260-dc66d52bef19?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80",
+        "heroImage": "https://thumb.wikimedia.org/wikipedia/commons/thumb/f/f6/Pokhara-Sarangkot-12-Sonnenaufgang-2015-gje.jpg/960px-Pokhara-Sarangkot-12-Sonnenaufgang-2015-gje.jpg",
         "description": "Early morning trek to Sarangkot for breathtaking sunrise views over the Himalayas.",
         "price": 40.0,
         "duration": "6 hours",
@@ -296,7 +393,7 @@ MOCK_EXPERIENCES = [
         "id": 6,
         "slug": "lalitpur-art-walk",
         "title": "Patan Art & Architecture Walk",
-        "heroImage": "https://images.unsplash.com/photo-1476514525535-07fb3b4ae5f1?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80",
+        "heroImage": "https://thumb.wikimedia.org/wikipedia/commons/thumb/1/17/Patan_Durbar_Square-2644.jpg/960px-Patan_Durbar_Square-2644.jpg",
         "description": "Explore the ancient city of Patan, known for its exquisite wood carvings and stone temples.",
         "price": 35.0,
         "duration": "3 hours",
@@ -310,7 +407,7 @@ MOCK_EXPERIENCES = [
         "id": 7,
         "slug": "chitwan-wildlife-safari",
         "title": "Chitwan Wildlife Safari",
-        "heroImage": "https://images.unsplash.com/photo-1549366021-9f761d450615?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80",
+        "heroImage": "https://thumb.wikimedia.org/wikipedia/commons/thumb/0/0e/Dhurbe%3B_Wild_Asian_Elephant.jpg/960px-Dhurbe%3B_Wild_Asian_Elephant.jpg",
         "description": "Experience the thrill of spotting rhinos, elephants, and exotic birds in Chitwan National Park.",
         "price": 75.0,
         "duration": "8 hours",
@@ -324,7 +421,7 @@ MOCK_EXPERIENCES = [
         "id": 8,
         "slug": "tharu-cultural-experience",
         "title": "Tharu Cultural Experience",
-        "heroImage": "https://images.unsplash.com/photo-1531572753322-ad063cecc140?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80",
+        "heroImage": "https://thumb.wikimedia.org/wikipedia/commons/thumb/0/0e/Tharu_Dance_during_Maghi.jpg/960px-Tharu_Dance_during_Maghi.jpg",
         "description": "Immerse yourself in the unique culture of the Tharu people and their traditional way of life.",
         "price": 30.0,
         "duration": "3 hours",
@@ -338,7 +435,7 @@ MOCK_EXPERIENCES = [
         "id": 9,
         "slug": "kathmandu-street-food",
         "title": "Kathmandu Street Food Adventure",
-        "heroImage": "https://images.unsplash.com/photo-1556909114-f6e7a7a97c0e?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80",
+        "heroImage": "https://images.unsplash.com/photo-1567620905732-2d1ec7ab7445?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80",
         "description": "Explore the vibrant street food scene of Kathmandu. From momos to chatpate, taste the best local flavors.",
         "price": 25.0,
         "duration": "2 hours",
@@ -380,7 +477,7 @@ MOCK_EXPERIENCES = [
         "id": 12,
         "slug": "lalitpur-cooking-class",
         "title": "Traditional Nepali Cooking Class",
-        "heroImage": "https://images.unsplash.com/photo-1556909114-f6e7a7a97c0e?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80",
+        "heroImage": "https://images.unsplash.com/photo-1585937421612-70a008356fbe?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80",
         "description": "Learn to cook authentic Nepali dishes including dal bhat, momos, and sel roti.",
         "price": 35.0,
         "duration": "4 hours",
@@ -410,7 +507,9 @@ def _guide_to_host_payload(guide: Guide) -> dict:
     }
 
 
-def _host_experience_to_public(db: Session, experience: HostExperience) -> Optional[dict]:
+def _host_experience_to_public(
+    db: Session, experience: HostExperience
+) -> Optional[dict]:
     """Host-owned experience enriched with its assigned guide for travelers."""
     rows = (
         db.query(HostExperienceGuide, Guide)
@@ -419,7 +518,9 @@ def _host_experience_to_public(db: Session, experience: HostExperience) -> Optio
             HostExperienceGuide.experience_id == experience.id,
             Guide.is_active.is_(True),
         )
-        .order_by(HostExperienceGuide.is_primary.desc(), HostExperienceGuide.created_at.desc())
+        .order_by(
+            HostExperienceGuide.is_primary.desc(), HostExperienceGuide.created_at.desc()
+        )
         .all()
     )
     if not rows:
@@ -456,7 +557,9 @@ def list_experiences(
 
     # Live host experiences with an assigned guide surface alongside mocks.
     try:
-        host_rows = db.query(HostExperience).filter(HostExperience.is_active.is_(True)).all()
+        host_rows = (
+            db.query(HostExperience).filter(HostExperience.is_active.is_(True)).all()
+        )
         for experience in host_rows:
             public_row = _host_experience_to_public(db, experience)
             if public_row:
@@ -514,7 +617,10 @@ def get_experience(slug: str, db: Session = Depends(get_db)) -> dict:
         try:
             experience = (
                 db.query(HostExperience)
-                .filter(HostExperience.slug == slug.removeprefix("host-"), HostExperience.is_active.is_(True))
+                .filter(
+                    HostExperience.slug == slug.removeprefix("host-"),
+                    HostExperience.is_active.is_(True),
+                )
                 .first()
             )
             if experience:
@@ -541,3 +647,21 @@ def get_guide(id: int, db: Session = Depends(get_db)) -> dict:
     if not guide:
         raise HTTPException(status_code=404, detail="Guide not found")
     return guide
+
+
+@router.get("/updates", response_model=List[PublicGuideUpdate])
+def list_public_updates(
+    city: Optional[str] = None,
+    limit: int = 20,
+    db: Session = Depends(get_db),
+) -> List[dict]:
+    """Traveller-facing feed of active guide updates, scoped by city.
+
+    Read-only and public: it exposes the guide's chosen display name and their
+    update text, never their user id, email or booking details. Updates are
+    matched to a city through the guide's onboarding profile or through the
+    listing they are attached to, because the guide accounts that post updates
+    are not linked to the legacy ``guides`` catalog profiles travellers
+    browse. Without a ``city`` filter every current update is returned.
+    """
+    return GuideDashboardService(db).list_public_updates(city=city, limit=limit)

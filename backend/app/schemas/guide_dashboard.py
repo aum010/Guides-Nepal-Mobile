@@ -2,9 +2,10 @@ from datetime import datetime
 from typing import List, Literal, Optional
 from pydantic import BaseModel, Field
 
-
 GuideCategory = Literal["trekking", "tour", "specialized"]
-GuideUpdateType = Literal["availability", "capacity", "booking", "schedule", "announcement"]
+GuideUpdateType = Literal[
+    "availability", "capacity", "booking", "schedule", "announcement"
+]
 
 
 class GuideListingCreate(BaseModel):
@@ -69,6 +70,27 @@ class GuideStatusCreate(BaseModel):
 class GuideStatusResponse(GuideStatusCreate):
     id: int
     created_at: Optional[datetime] = None
+
+
+class PublicGuideUpdate(BaseModel):
+    """A traveller-facing slice of ``GuideStatusUpdate``.
+
+    Deliberately omits ``guide_user_id`` and every other internal foreign key:
+    the only identity shown is the display name the guide set while
+    onboarding, which is published for exactly this purpose.
+    """
+
+    id: int
+    update_type: str
+    message: str
+    area: Optional[str] = None
+    event_date: Optional[datetime] = None
+    current_capacity: Optional[int] = None
+    max_capacity: Optional[int] = None
+    created_at: Optional[datetime] = None
+    guide_name: str
+    listing_title: Optional[str] = None
+    cities: List[str] = Field(default_factory=list)
 
 
 class GuideOnboardingCreate(BaseModel):

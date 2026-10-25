@@ -135,3 +135,12 @@ playwright/.cache/
 *.tsbuildinfo
 .vercel
 .turbo
+
+# Backend debug/diagnostic scratch (kept on disk, never committed)
+backend/_*.py
+backend/_*.txt
+backend/*.stale.bak
+backend/mig_out.txt
+backend/orm_ddl.txt
+backend/dump_orm.py
+backend/scripts/_*

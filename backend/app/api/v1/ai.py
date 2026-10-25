@@ -40,8 +40,16 @@ async def chat(req: ChatRequest) -> ChatResponse:
             "stream": False,
             "options": {"temperature": req.temperature or 0.7},
         }
-        async with httpx.AsyncClient(timeout=60) as client:
-            resp = await client.post(f"{base}/api/chat", json=payload)
+        try:
+            async with httpx.AsyncClient(timeout=60) as client:
+                resp = await client.post(f"{base}/api/chat", json=payload)
+        except httpx.TransportError:
+            # Ollama is configured but unreachable (daemon down, remote
+            # host asleep). Fall through to the API-key path and the
+            # built-in replies below — a chat question must not 500 just
+            # because the local model is offline.
+            pass
+        else:
             if resp.status_code != 200:
                 raise HTTPException(status_code=resp.status_code, detail=resp.text)
             data = resp.json()
@@ -100,7 +108,7 @@ async def chat(req: ChatRequest) -> ChatResponse:
         )
     if "time" in q and "kathmandu" in q:
         ktm_tz = timezone(timedelta(hours=5, minutes=45))
-        now_ktm = datetime.utcnow().replace(tzinfo=timezone.utc).astimezone(ktm_tz)
+        now_ktm = datetime.now(timezone.utc).astimezone(ktm_tz)
         return ChatResponse(
             reply=f"Kathmandu time: {now_ktm.strftime('%I:%M %p')} (UTC+5:45)."
         )

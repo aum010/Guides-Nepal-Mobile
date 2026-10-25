@@ -52,11 +52,17 @@ class ExperienceBase(BaseModel):
     duration: Optional[str] = None
     rating: Optional[float] = None
     reviews: Optional[int] = None
+    # Presentation metadata every catalogue row carries; clients use it for
+    # card subtitles and for the city/category filter chips.
+    city: Optional[str] = None
+    category: Optional[str] = None
 
 
 class ExperienceResponse(ExperienceBase):
     id: int
     host: GuideResponse
+    # Host experiences can be led by several guides; catalogue rows omit it.
+    guides: List[GuideResponse] = []
 
     class Config:
         from_attributes = True

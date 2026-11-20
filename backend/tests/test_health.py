@@ -8,7 +8,7 @@ from fastapi.testclient import TestClient
 class TestHealthEndpoints:
     """Test health check endpoints."""
 
-    def test_root_endpoint(self, client: TestClient):
+    def test_root_endpoint(self, client: TestClient) -> None:
         """Test the root endpoint returns API info."""
         response = client.get("/")
         assert response.status_code == 200
@@ -17,7 +17,7 @@ class TestHealthEndpoints:
         assert "status" in data
         assert data["status"] == "running"
 
-    def test_health_check(self, client: TestClient):
+    def test_health_check(self, client: TestClient) -> None:
         """Test the health check endpoint."""
         response = client.get("/health")
         assert response.status_code == 200
@@ -25,7 +25,7 @@ class TestHealthEndpoints:
         assert data["status"] == "ok"
         assert "environment" in data
 
-    def test_api_health_check(self, client: TestClient):
+    def test_api_health_check(self, client: TestClient) -> None:
         """Test the API health check endpoint."""
         response = client.get("/api/v1/health")
         assert response.status_code == 200

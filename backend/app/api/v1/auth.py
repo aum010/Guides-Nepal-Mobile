@@ -96,6 +96,16 @@ def _ensure_supabase_user_exists(email: str, settings: "Settings") -> None:
         logger.warning("Supabase Auth user check/create error for %s: %s", email, e)
 
 
+def _token_payload(tokens: dict) -> dict:
+    """Return a JSON-safe token body.
+
+    ``AuthService.create_tokens`` embeds a ``UserResponse`` model, which
+    ``JSONResponse`` cannot encode — the OAuth callbacks return raw JSON, so
+    the body is normalized through the response model first.
+    """
+    return Token(**tokens).model_dump(mode="json")
+
+
 router = APIRouter()
 
 
@@ -593,18 +603,18 @@ async def oauth_google_callback(
     user = auth_service.upsert_social_user(
         email=email, first_name=first_name, last_name=last_name
     )
-    tokens = auth_service.create_tokens(user)
+    payload = _token_payload(auth_service.create_tokens(user))
     # Redirect to frontend with tokens in query (MVP approach)
     if settings.FRONTEND_OAUTH_REDIRECT:
         params = urllib.parse.urlencode(
             {
-                "access_token": tokens["access_token"],
-                "refresh_token": tokens["refresh_token"],
+                "access_token": payload["access_token"],
+                "refresh_token": payload["refresh_token"],
                 "email": user.email,
             }
         )
         return RedirectResponse(f"{settings.FRONTEND_OAUTH_REDIRECT}?{params}")
-    return JSONResponse(tokens)
+    return JSONResponse(payload)
 
 
 # --- OAuth: Facebook ---
@@ -680,14 +690,14 @@ async def oauth_facebook_callback(
     user = auth_service.upsert_social_user(
         email=email, first_name=first_name, last_name=last_name
     )
-    tokens = auth_service.create_tokens(user)
+    payload = _token_payload(auth_service.create_tokens(user))
     if settings.FRONTEND_OAUTH_REDIRECT:
         params = urllib.parse.urlencode(
             {
-                "access_token": tokens["access_token"],
-                "refresh_token": tokens["refresh_token"],
+                "access_token": payload["access_token"],
+                "refresh_token": payload["refresh_token"],
                 "email": user.email,
             }
         )
         return RedirectResponse(f"{settings.FRONTEND_OAUTH_REDIRECT}?{params}")
-    return JSONResponse(tokens)
+    return JSONResponse(payload)

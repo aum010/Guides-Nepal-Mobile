@@ -12,6 +12,7 @@ import '../../shared/models/booking.dart';
 import '../../shared/widgets/widgets.dart';
 import '../auth/auth_repository.dart';
 import '../bookings/booking_repository.dart';
+import '../inbox/inbox_repository.dart';
 
 /// Upcoming and past bookings for the signed-in traveler. Signed-out
 /// travelers get a prompt to sign in rather than an error.
@@ -172,6 +173,7 @@ class _TripTile extends ConsumerStatefulWidget {
 class _TripTileState extends ConsumerState<_TripTile> {
   // Guards the non-idempotent cancel/archive calls, same as booking submit.
   bool _acting = false;
+  bool _openingThread = false;
 
   Booking get booking => widget.booking;
 
@@ -226,6 +228,30 @@ class _TripTileState extends ConsumerState<_TripTile> {
     await _run((repo) => repo.cancelBooking(booking.id));
   }
 
+  /// Opens (or reuses) the thread with this booking's guide and pushes
+  /// it. Get-or-create on the server makes double-taps harmless; the
+  /// button still shows a spinner for the round trip.
+  Future<void> _openGuideThread() async {
+    final guideId = booking.guideUserId;
+    if (guideId == null || _openingThread) return;
+    setState(() => _openingThread = true);
+    try {
+      final conversation =
+          await ref.read(inboxRepositoryProvider).openWith(guideId);
+      // The new thread belongs in the Inbox list the moment we return.
+      ref.invalidate(conversationsProvider);
+      if (!mounted) return;
+      context.push('/inbox/${conversation.id}');
+    } on ApiException catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text(e.message)));
+      }
+    } finally {
+      if (mounted) setState(() => _openingThread = false);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Container(
@@ -277,7 +303,7 @@ class _TripTileState extends ConsumerState<_TripTile> {
                 ),
               ),
               const SizedBox(width: AppSpacing.x2),
-              _StatusChip(status: booking.status),
+              BookingStatusChip(status: booking.status),
             ],
           ),
           const SizedBox(height: AppSpacing.x3),
@@ -298,13 +324,24 @@ class _TripTileState extends ConsumerState<_TripTile> {
               Text(Formatters.price(booking.price), style: AppTypography.price),
             ],
           ),
-          // One action per tile: cancel while the trip is live, archive
-          // once it reached a terminal state. Archived trips are left alone.
+          // Actions per tile: cancel while the trip is live, archive once
+          // it reached a terminal state, and message the assigned guide
+          // whenever one is linked. Archived trips are left alone.
           if (booking.status.canCancel || booking.status != BookingStatus.archived) ...[
             const SizedBox(height: AppSpacing.x3),
             Row(
               mainAxisAlignment: MainAxisAlignment.end,
               children: [
+                if (booking.status.canCancel && booking.guideUserId != null) ...[
+                  AppButton(
+                    label: AppStrings.messageGuide,
+                    variant: AppButtonVariant.outline,
+                    expanded: false,
+                    loading: _openingThread,
+                    onPressed: _openingThread ? null : _openGuideThread,
+                  ),
+                  const SizedBox(width: AppSpacing.x2),
+                ],
                 if (booking.status.canCancel)
                   AppButton(
                     label: 'Cancel trip',
@@ -326,38 +363,6 @@ class _TripTileState extends ConsumerState<_TripTile> {
             ),
           ],
         ],
-      ),
-    );
-  }
-}
-
-class _StatusChip extends StatelessWidget {
-  const _StatusChip({required this.status});
-
-  final BookingStatus status;
-
-  @override
-  Widget build(BuildContext context) {
-    final (bg, fg) = switch (status) {
-      BookingStatus.upcoming || BookingStatus.accepted =>
-        (AppColors.successSurface, AppColors.success),
-      BookingStatus.completed => (AppColors.surfacePeach, AppColors.secondary),
-      BookingStatus.cancelled || BookingStatus.rejected =>
-        (AppColors.errorSurface, AppColors.error),
-      BookingStatus.archived =>
-        (AppColors.border, AppColors.textSecondary),
-    };
-    return Container(
-      padding: const EdgeInsets.symmetric(
-          horizontal: AppSpacing.x2 + 2, vertical: 4),
-      decoration: BoxDecoration(
-        color: bg,
-        borderRadius: BorderRadius.circular(AppSpacing.radiusPill),
-      ),
-      child: Text(
-        status.name.toUpperCase(),
-        style: AppTypography.caption
-            .copyWith(color: fg, fontWeight: FontWeight.w600, fontSize: 10),
       ),
     );
   }

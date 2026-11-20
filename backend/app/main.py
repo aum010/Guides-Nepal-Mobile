@@ -2,9 +2,10 @@ from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import JSONResponse
-from sqlalchemy import inspect, text
 from app.core.config import settings
-from app.core.database import Base, engine
+from app.core.database import engine
+from app.core.schema import apply_schema
+from app.core.storage import UPLOADS_ROOT
 from app import models  # noqa: F401  (registers all models on Base.metadata)
 from app.core.middleware import (
     SecurityHeadersMiddleware,
@@ -26,6 +27,7 @@ from app.api.v1 import (
     guide,
     experience_workflow,
     reviews,
+    conversations,
 )
 import os
 import logging
@@ -88,12 +90,17 @@ app.include_router(
 app.include_router(
     operations.router, prefix=f"{settings.API_V1_STR}/operations", tags=["operations"]
 )
+app.include_router(
+    conversations.router, prefix=f"{settings.API_V1_STR}", tags=["conversations"]
+)
 
-# Static file mounting with restrictions
-uploads_dir = os.path.join(os.path.dirname(__file__), "uploads")
+# Static file mounting with restrictions. The directory comes from
+# ``app.core.storage`` so the path that serves a photo is the path uploads are
+# written to — they used to disagree, and every uploaded URL 404'd.
+uploads_dir = UPLOADS_ROOT
 try:
     os.makedirs(uploads_dir, exist_ok=True)
-    app.mount("/uploads", StaticFiles(directory=uploads_dir), name="uploads")
+    app.mount("/uploads", StaticFiles(directory=str(uploads_dir)), name="uploads")
 except PermissionError:
     # If uploads dir can't be created, continue without file serving
     # (common in containerized environments with read-only filesystems)
@@ -102,40 +109,26 @@ except Exception as e:
     logger.warning(f"Could not mount uploads directory: {e}")
 
 
+def provision_schema() -> None:
+    """Bring the database to the schema this code expects — or refuse to start.
+
+    Schema changes come from the Alembic chain rather than
+    ``Base.metadata.create_all``, so a deployed database and a migrated one
+    cannot drift apart.
+
+    A failure here is **fatal on purpose**. This used to be caught and logged,
+    which is worse than crashing: the app booted, ``/health`` answered 200, and
+    every query touching a missing column failed with a 500 that looked like an
+    application bug rather than a database one. A supervisor (or the person
+    running uvicorn) now sees the real error and stops.
+    """
+    outcome = apply_schema(engine)
+    logger.info("Database schema %s (head applied).", outcome)
+
+
 @app.on_event("startup")
 def ensure_database_schema() -> None:
-    """Create database tables if they don't exist yet.
-
-    This guarantees the `users` (and other) tables exist wherever the app can
-    reach the configured database, so registrations actually have somewhere to
-    be stored. Failures are logged (not fatal) so the app still boots and can
-    report a clear error on DB-dependent requests instead of crashing.
-    """
-    try:
-        Base.metadata.create_all(bind=engine)
-        inspector = inspect(engine)
-        booking_columns = {
-            column["name"] for column in inspector.get_columns("bookings")
-        }
-        if "guide_user_id" not in booking_columns:
-            with engine.begin() as connection:
-                connection.execute(
-                    text("ALTER TABLE bookings ADD COLUMN guide_user_id INTEGER")
-                )
-        # Existing databases predate `create_all` support for new columns.
-        user_columns = {column["name"] for column in inspector.get_columns("users")}
-        for name in ("token_version", "session_version"):
-            if name not in user_columns:
-                with engine.begin() as connection:
-                    connection.execute(
-                        text(
-                            f"ALTER TABLE users ADD COLUMN {name} "
-                            "INTEGER NOT NULL DEFAULT 0"
-                        )
-                    )
-        logger.info("Database schema verified/created successfully.")
-    except Exception as e:  # pragma: no cover - depends on DB availability
-        logger.error(f"Could not create/verify database schema: {e}")
+    provision_schema()
 
 
 @app.get("/")

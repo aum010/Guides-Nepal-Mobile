@@ -32,6 +32,8 @@ class Booking {
     required this.userId,
     required this.createdAt,
     this.image,
+    this.guideUserId,
+    this.guideName,
   });
 
   final int id;
@@ -45,6 +47,11 @@ class Booking {
   final int userId;
   final DateTime createdAt;
   final String? image;
+
+  /// The guide account assigned to this booking — the recipient of the
+  /// "Message guide" thread. Null until a guide is linked.
+  final int? guideUserId;
+  final String? guideName;
 
   factory Booking.fromJson(Map<String, dynamic> json) => Booking(
         id: (json['id'] as num?)?.toInt() ?? 0,
@@ -60,6 +67,8 @@ class Booking {
         createdAt: DateTime.tryParse(json['created_at'] as String? ?? '')?.toLocal() ??
             DateTime.now(),
         image: json['image'] as String?,
+        guideUserId: (json['guide_user_id'] as num?)?.toInt(),
+        guideName: json['guide_name'] as String?,
       );
 
   Map<String, dynamic> toJson() => {
@@ -74,5 +83,7 @@ class Booking {
         'user_id': userId,
         'created_at': createdAt.toUtc().toIso8601String(),
         'image': image,
+        'guide_user_id': guideUserId,
+        'guide_name': guideName,
       };
 }

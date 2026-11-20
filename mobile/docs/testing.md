@@ -1,11 +1,11 @@
 # Testing
 
-## Quality gates (all run on this machine, 2026-10-21)
+## Quality gates (all run on this machine, 2026-10-31)
 
 | Command | Result |
 |---|---|
 | `flutter analyze` | **No issues found** (0 errors, 0 warnings, 0 infos) |
-| `flutter test` | **108/108 passed** |
+| `flutter test` | **230/230 passed** (7 design-capture cases skipped by design) |
 | `flutter build apk --debug` | **Built** `build/app/outputs/flutter-apk/app-debug.apk` |
 | `flutter build ios` | **Not run** — Windows host, no Xcode (see Release doc) |
 
@@ -25,6 +25,11 @@ flutter build apk --debug
 |---|---|
 | `widget_test.dart` | Brand copy, formatters (`$50` vs `$49.50`, `/ person`, plural counts, relative times), booking-status parsing and `canCancel`, experience parsing (populated + minimal rows) |
 | `widget_components_test.dart` | `ExperienceCard`, `AppButton` (loading blocks duplicates), empty/error states, `AppFilterChip` |
+| `design_tokens_test.dart` | The palette's computable half: WCAG 2.1 contrast for every text pair and meaningful non-text pair, the emphasis ordering of the text ramp, the 4 pt spacing scale, the touch-target floor, radii ordering, and the theme wiring (canvas, CTA, disabled ink, light-only) |
+| `profile_edit_test.dart` | `ProfileDraft` rules (at least one name, phone charset, length caps, trimmed payload), the `PATCH /profile/me` key spelling (`avatar_url`, never the response-side `avatarUrl`), the multipart avatar upload, and the editor: prefill, save-and-pop, live validation blocking the request, and a rejected save keeping the form |
+| `design_capture_test.dart` | Design review captures, not assertions: renders the seven signed-in screens with the real theme and bundled fonts at 390×844 and writes `docs/screens/*.png`. Skipped unless `--dart-define=CAPTURE_SCREENS=true`, so nothing can flake in the normal suite |
+| `onboarding_pager_test.dart` | Position indicator, `Page N of M` semantics, swipe and dot navigation, reduced-motion-safe jump, and the two account actions routing onward |
+| `design_system_guard_test.dart` | The palette's discipline half: no literal colours, no Material palette colours, no hardcoded font size or family, no inline-copy growth (ratchet), and no second booking-status palette outside `BookingStatusChip` — all scanned from the real `lib/` sources |
 | `sign_in_validation_test.dart` | Sign-in/sign-up field validation before any request |
 | `app_router_redirect_test.dart` | `authRedirect` exhaustively: session restore, signed-out allow-list, signed-in bounce, role guard for `/guide`, `/guide/profile`, `/guide/status…` and `/guide/listing…`, public `/guide/:id` |
 | `booking_flow_test.dart` | Booking form steps and the confirmation screen's destinations |

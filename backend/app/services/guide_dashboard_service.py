@@ -1,11 +1,10 @@
 """Business logic for the guide dashboard (listings, capacity, status, onboarding)."""
 
+from datetime import datetime, timedelta, timezone
 from typing import List, Optional
 
 from fastapi import HTTPException
 from sqlalchemy.orm import Session
-
-from datetime import datetime, timedelta, timezone
 
 from app.models.guide_listing import GuideListing, GuideProfile, GuideStatusUpdate
 from app.models.user import User
@@ -16,6 +15,14 @@ from app.schemas.guide_dashboard import (
     GuideOnboardingCreate,
     GuideStatusCreate,
 )
+from app.core.storage import delete_upload_dir, delete_uploaded, save_image
+from app.services.catalog_service import CatalogService
+
+# Nepal is UTC+05:45 with no daylight saving. A traveller-facing "today" has
+# to be Nepal's, not UTC's: for the 5h45m the two dates disagree, comparing a
+# local update against a UTC date kept yesterday's announcements on the feed
+# ("two spots left" for a trip that already left) every night after 18:15 UTC.
+NEPAL_TZ = timezone(timedelta(hours=5, minutes=45))
 
 
 def _listing_to_dict(listing: GuideListing) -> dict:
@@ -27,6 +34,11 @@ def _listing_to_dict(listing: GuideListing) -> dict:
     )
     return {
         "id": listing.id,
+        # The public catalogue address of this listing (``/experiences/…``).
+        # An active listing is live for travellers; pausing hides it at once.
+        "slug": listing.slug,
+        "public_slug": f"listing-{listing.slug}",
+        "is_public": bool(listing.is_active),
         "title": listing.title,
         "category": listing.category,
         "city": listing.city,
@@ -38,6 +50,7 @@ def _listing_to_dict(listing: GuideListing) -> dict:
         "difficulty": listing.difficulty,
         "price": listing.price,
         "max_guests": listing.max_guests,
+        "hero_image": listing.hero_image,
         "is_active": listing.is_active,
         "booked_guests": listing.booked_guests or 0,
         "available_spots": available,
@@ -59,7 +72,11 @@ class GuideDashboardService:
         return [_listing_to_dict(row) for row in rows]
 
     def create_listing(self, guide: User, payload: GuideListingCreate) -> dict:
-        listing = GuideListing(guide_user_id=guide.id, **payload.model_dump())
+        listing = GuideListing(
+            guide_user_id=guide.id,
+            slug=CatalogService(self.db).unique_slug(payload.title),
+            **payload.model_dump(),
+        )
         self.db.add(listing)
         self.db.commit()
         self.db.refresh(listing)
@@ -75,16 +92,44 @@ class GuideDashboardService:
             raise HTTPException(
                 status_code=422, detail="max_guests cannot be below booked guests"
             )
+        # A photo is only ever set through the upload endpoint: accepting a
+        # URL here would let a listing render an image the platform never
+        # stored or checked. ``null`` clears it.
+        if data.get("hero_image"):
+            raise HTTPException(
+                status_code=422,
+                detail="Upload the photo instead of setting a URL.",
+            )
+        previous_photo = listing.hero_image
         for key, value in data.items():
             setattr(listing, key, value)
         self.db.commit()
         self.db.refresh(listing)
+        if "hero_image" in data and previous_photo != listing.hero_image:
+            delete_uploaded(previous_photo)
+        return _listing_to_dict(listing)
+
+    def set_listing_photo(
+        self, guide_id: int, listing_id: int, contents: bytes, content_type: str | None
+    ) -> dict:
+        """Replace a listing's public photo, deleting the file it replaced."""
+        listing = self._get_owned_listing(guide_id, listing_id)
+        previous = listing.hero_image
+        listing.hero_image = save_image(
+            contents, content_type, f"listings/{listing.id}"
+        )
+        self.db.commit()
+        self.db.refresh(listing)
+        if previous != listing.hero_image:
+            delete_uploaded(previous)
         return _listing_to_dict(listing)
 
     def delete_listing(self, guide_id: int, listing_id: int) -> None:
         listing = self._get_owned_listing(guide_id, listing_id)
         self.db.delete(listing)
         self.db.commit()
+        # The photos go with the listing; nothing else points at them.
+        delete_upload_dir(f"listings/{listing.id}")
 
     def update_capacity(
         self, guide_id: int, listing_id: int, payload: GuideListingCapacityUpdate
@@ -177,6 +222,7 @@ class GuideDashboardService:
         """
         max_age_days = 14
         now = datetime.now(timezone.utc)
+        today_in_nepal = datetime.now(NEPAL_TZ).date()
         wanted = city.strip().lower() if city else None
 
         rows = (
@@ -230,8 +276,10 @@ class GuideDashboardService:
             if row.event_date is not None:
                 stamp = row.event_date
                 if stamp.tzinfo is None:
+                    # Stored without a zone (SQLite keeps naive datetimes):
+                    # treat it as UTC, which is what the write path stores.
                     stamp = stamp.replace(tzinfo=timezone.utc)
-                return stamp.date() >= now.date()
+                return stamp.astimezone(NEPAL_TZ).date() >= today_in_nepal
             if row.created_at is None:
                 return True
             created = row.created_at

@@ -1,10 +1,14 @@
 """
 Pytest configuration and fixtures for backend tests.
 """
+
+from collections.abc import Iterator
+from typing import Any
+
 import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker
+from sqlalchemy.orm import Session, sessionmaker
 from sqlalchemy.pool import StaticPool
 
 from app.main import app
@@ -21,7 +25,7 @@ engine = create_engine(
 TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 
-def override_get_db():
+def override_get_db() -> Iterator[Session]:
     """Override the database dependency for testing."""
     try:
         db = TestingSessionLocal()
@@ -31,7 +35,7 @@ def override_get_db():
 
 
 @pytest.fixture(scope="function")
-def db_session():
+def db_session() -> Iterator[Session]:
     """Create a fresh database session for each test."""
     Base.metadata.create_all(bind=engine)
     session = TestingSessionLocal()
@@ -41,7 +45,7 @@ def db_session():
 
 
 @pytest.fixture(scope="function")
-def client(db_session):
+def client(db_session: Session) -> Iterator[TestClient]:
     """Create a test client with a fresh database."""
     app.dependency_overrides[get_db] = override_get_db
     with TestClient(app) as test_client:
@@ -50,7 +54,7 @@ def client(db_session):
 
 
 @pytest.fixture
-def sample_user_data():
+def sample_user_data() -> dict[str, str]:
     """Sample user data for testing."""
     return {
         "email": "test@example.com",
@@ -61,7 +65,7 @@ def sample_user_data():
 
 
 @pytest.fixture
-def sample_booking_data():
+def sample_booking_data() -> dict[str, Any]:
     """Sample booking data for testing."""
     return {
         "experience_id": 1,

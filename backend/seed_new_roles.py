@@ -30,21 +30,54 @@ USERS = [
 ]
 
 APPLICATIONS = [
-    dict(host_name="Sita Gurung", email="sita.host@example.com", city="Pokhara",
-         region="Gandaki", phone="9801234567", experience="10 years homestay"),
-    dict(host_name="Bikash Tamang", email="bikash.host@example.com", city="Bhaktapur",
-         region="Kathmandu Valley", phone="9802234567", experience="Cultural tours"),
-    dict(host_name="Maya Sherpa", email="maya.host@example.com", city="Namche",
-         region="Everest", phone="9803234567", experience="Trekking lodges"),
+    dict(
+        host_name="Sita Gurung",
+        email="sita.host@example.com",
+        city="Pokhara",
+        region="Gandaki",
+        phone="9801234567",
+        experience="10 years homestay",
+    ),
+    dict(
+        host_name="Bikash Tamang",
+        email="bikash.host@example.com",
+        city="Bhaktapur",
+        region="Kathmandu Valley",
+        phone="9802234567",
+        experience="Cultural tours",
+    ),
+    dict(
+        host_name="Maya Sherpa",
+        email="maya.host@example.com",
+        city="Namche",
+        region="Everest",
+        phone="9803234567",
+        experience="Trekking lodges",
+    ),
 ]
 
 TICKETS = [
-    dict(subject="Cannot log in to my account", description="Password reset email never arrives.",
-         customer_name="Ram Thapa", customer_email="ram@example.com", priority="high"),
-    dict(subject="Refund for cancelled tour", description="Guide cancelled last minute.",
-         customer_name="Anna Meyer", customer_email="anna@example.com", priority="urgent"),
-    dict(subject="How to become a host?", description="Interested in listing my homestay.",
-         customer_name="Kiran Rai", customer_email="kiran@example.com", priority="medium"),
+    dict(
+        subject="Cannot log in to my account",
+        description="Password reset email never arrives.",
+        customer_name="Ram Thapa",
+        customer_email="ram@example.com",
+        priority="high",
+    ),
+    dict(
+        subject="Refund for cancelled tour",
+        description="Guide cancelled last minute.",
+        customer_name="Anna Meyer",
+        customer_email="anna@example.com",
+        priority="urgent",
+    ),
+    dict(
+        subject="How to become a host?",
+        description="Interested in listing my homestay.",
+        customer_name="Kiran Rai",
+        customer_email="kiran@example.com",
+        priority="medium",
+    ),
 ]
 
 
@@ -70,15 +103,17 @@ def main() -> None:
                     existing.region = u["region"]
                 print(f"Updated existing user: {u['email']} ({u['role']})")
             else:
-                db.add(User(
-                    email=u["email"],
-                    firstName=u["firstName"],
-                    lastName=u["lastName"],
-                    hashed_password=get_password_hash(u["password"]),
-                    role=u["role"],
-                    region=u.get("region"),
-                    is_active=True,
-                ))
+                db.add(
+                    User(
+                        email=u["email"],
+                        firstName=u["firstName"],
+                        lastName=u["lastName"],
+                        hashed_password=get_password_hash(u["password"]),
+                        role=u["role"],
+                        region=u.get("region"),
+                        is_active=True,
+                    )
+                )
                 print(f"Created user: {u['email']} ({u['role']})")
 
         if db.query(HostApplication).count() == 0:

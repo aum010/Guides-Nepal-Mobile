@@ -39,15 +39,25 @@ class BookingRequest {
 }
 
 class DayAvailability {
-  const DayAvailability({required this.available, required this.status});
+  const DayAvailability({
+    required this.available,
+    required this.status,
+    this.spotsLeft,
+  });
 
   final bool available;
-  final String status; // free | booked | reserved
 
-  factory DayAvailability.fromJson(Map<String, dynamic> json) =>
-      DayAvailability(
+  /// free | booked | reserved | full. `full` only answers for a published
+  /// guide listing, whose seats — not its calendar — are what ran out.
+  final String status;
+
+  /// Remaining seats, present only when the query named an experience.
+  final int? spotsLeft;
+
+  factory DayAvailability.fromJson(Map<String, dynamic> json) => DayAvailability(
         available: json['available'] == true,
         status: json['status'] as String? ?? 'free',
+        spotsLeft: (json['spots_left'] as num?)?.toInt(),
       );
 }
 
@@ -81,9 +91,20 @@ class BookingRepository {
     return Booking.fromJson((res.data as Map).cast<String, dynamic>());
   }
 
-  Future<DayAvailability> fetchAvailability(DateTime date) async {
+  /// Availability for one date.
+  ///
+  /// Passing the experience makes the server answer for *that* row: a
+  /// published guide listing is checked against its own guide's calendar and
+  /// its remaining seats, instead of the single fallback guide's calendar.
+  Future<DayAvailability> fetchAvailability(DateTime date, {int? experienceId}) async {
     final iso = date.toIso8601String().substring(0, 10);
-    final res = await _client.get('/bookings/availability', query: {'date': iso});
+    final res = await _client.get(
+      '/bookings/availability',
+      query: {
+        'date': iso,
+        if (experienceId != null) 'experience_id': experienceId,
+      },
+    );
     return DayAvailability.fromJson((res.data as Map).cast<String, dynamic>());
   }
 }

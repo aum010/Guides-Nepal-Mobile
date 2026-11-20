@@ -35,18 +35,26 @@ abstract final class Formatters {
 
   static String time(DateTime d) => DateFormat('h:mm a').format(d);
 
-  /// Short age for activity rows: `Just now`, `12 min ago`, `3 h ago`,
+  /// Short age for activity rows: `Just now`, `12 min ago`, `3 hr ago`,
   /// `Yesterday`, `4 days ago`, then an absolute date. A timestamp in the
   /// future (clock skew) reads as `Just now` rather than a negative age.
+  ///
+  /// Units are spelled the same way throughout (`min`, `hr`, `days`): a lone
+  /// `h` after a space read as a typo in review, not as a deliberate
+  /// abbreviation.
   static String relativeTime(DateTime d) {
     final diff = DateTime.now().difference(d);
     if (diff.inSeconds < 60) return 'Just now';
     if (diff.inMinutes < 60) return '${diff.inMinutes} min ago';
-    if (diff.inHours < 24) return '${diff.inHours} h ago';
+    if (diff.inHours < 24) return '${diff.inHours} hr ago';
     if (diff.inDays == 1) return 'Yesterday';
     if (diff.inDays < 7) return '${diff.inDays} days ago';
     return dateShort(d);
   }
+
+  /// Character counter for a capped field (`120/300`). Numeric formatting
+  /// belongs here, not in a widget, so the widget stays free of layout copy.
+  static String fieldCounter(int used, int max) => '$used/$max';
 
   static String reviewCount(int count) =>
       count == 1 ? '1 review' : '$count reviews';

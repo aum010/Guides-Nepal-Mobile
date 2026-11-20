@@ -13,6 +13,11 @@ from sqlalchemy import pool
 from alembic import context
 from app.core.database import DATABASE_URL, Base
 
+# Importing the models package registers every table on ``Base.metadata``.
+# Without it ``target_metadata`` is empty, so autogenerate would conclude that
+# every existing table should be dropped.
+import app.models  # noqa: E402,F401
+
 config = context.config
 config.set_main_option("sqlalchemy.url", DATABASE_URL)
 
@@ -41,7 +46,21 @@ def run_migrations_online() -> None:
 
     Any connection or migration error is re-raised so the Alembic CLI exits
     with a non-zero status code instead of reporting a false success.
+
+    ``app.core.schema`` passes its own connection through ``config.attributes``
+    so a startup migration runs against exactly the engine the app uses.
     """
+    provided = config.attributes.get("connection")
+    if provided is not None:
+        context.configure(
+            connection=provided,
+            target_metadata=target_metadata,
+            render_as_batch=True,
+        )
+        with context.begin_transaction():
+            context.run_migrations()
+        return
+
     connectable = engine_from_config(
         config.get_section(config.config_ini_section),  # type: ignore
         prefix="sqlalchemy.",

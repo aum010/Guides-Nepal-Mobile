@@ -50,7 +50,7 @@ abstract final class AppShadows {
   /// Floating chrome that overlays content or imagery.
   static const List<BoxShadow> floating = [
     BoxShadow(
-      color: Color(0x2E213448),
+      color: AppColors.shadowTintStrong,
       blurRadius: 24,
       offset: Offset(0, 8),
       spreadRadius: -4,

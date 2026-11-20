@@ -8,6 +8,10 @@ Covers:
 4. GET /api/v1/host/me/application returns status/reviewed_by/reviewed_at.
 """
 
+from fastapi.testclient import TestClient
+
+from sqlalchemy.orm import Session
+
 from app.core.roles import ADMIN, HOST, REGIONAL_HEAD
 from app.core.security import create_access_token, get_password_hash
 from app.models.user import User
@@ -22,7 +26,9 @@ def _bearer(user_id: int) -> dict:
     return {"Authorization": f"Bearer {create_access_token(user_id)}"}
 
 
-def _make_staff(db_session, role: str, email: str, region: str | None = None) -> User:
+def _make_staff(
+    db_session: Session, role: str, email: str, region: str | None = None
+) -> User:
     user = User(
         email=email,
         hashed_password=get_password_hash("StaffPass123!"),
@@ -37,7 +43,9 @@ def _make_staff(db_session, role: str, email: str, region: str | None = None) ->
     return user
 
 
-def test_full_approval_gated_login_flow(client, db_session):
+def test_full_approval_gated_login_flow(
+    client: TestClient, db_session: Session
+) -> None:
     """Submit with password → staff approve → login works → /host/me/application."""
     # --- Step 1: Applicant submits with a password ---------------------------
     resp = client.post(
@@ -87,7 +95,9 @@ def test_full_approval_gated_login_flow(client, db_session):
     assert body["reviewed_at"] is not None
 
 
-def test_host_login_blocked_before_approval(client, db_session):
+def test_host_login_blocked_before_approval(
+    client: TestClient, db_session: Session
+) -> None:
     """Host application pending → no login account → 404 on /host/me/application."""
     client.post(
         APPLICATION_CREATE,
@@ -104,7 +114,9 @@ def test_host_login_blocked_before_approval(client, db_session):
     assert resp.status_code == 401
 
 
-def test_regional_head_can_approve_own_region(client, db_session):
+def test_regional_head_can_approve_own_region(
+    client: TestClient, db_session: Session
+) -> None:
     """Regional head approves an application in their own region."""
     regional_head = _make_staff(
         db_session, REGIONAL_HEAD, "rh@example.com", region="Bagmati"
@@ -130,7 +142,9 @@ def test_regional_head_can_approve_own_region(client, db_session):
     assert resp.status_code == 200, resp.text
 
 
-def test_rejected_application_does_not_mint_user(client, db_session):
+def test_rejected_application_does_not_mint_user(
+    client: TestClient, db_session: Session
+) -> None:
     """Rejected application → no users row."""
     client.post(
         APPLICATION_CREATE,

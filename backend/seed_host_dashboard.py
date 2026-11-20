@@ -6,6 +6,8 @@ updated rather than duplicated. Run from the backend directory:
     python seed_host_dashboard.py
 """
 
+from typing import Any
+
 from datetime import datetime, timedelta, timezone
 
 from app.core.database import Base, SessionLocal, engine
@@ -24,7 +26,7 @@ def main() -> None:
         if not host or host.role != HOST:
             raise RuntimeError(f"Seed host account not found: {HOST_EMAIL}")
 
-        experiences = [
+        experiences: list[dict[str, Any]] = [
             {
                 "title": "Pokhara Lakeside Sunrise Walk",
                 "city": "Pokhara",
@@ -46,12 +48,18 @@ def main() -> None:
         ]
         for data in experiences:
             slug = data["title"].lower().replace(" ", "-")
-            row = db.query(HostExperience).filter(HostExperience.host_id == host.id, HostExperience.slug == slug).first()
+            row = (
+                db.query(HostExperience)
+                .filter(HostExperience.host_id == host.id, HostExperience.slug == slug)
+                .first()
+            )
             if row:
                 for key, value in data.items():
                     setattr(row, key, value)
             else:
-                db.add(HostExperience(host_id=host.id, slug=slug, is_active=True, **data))
+                db.add(
+                    HostExperience(host_id=host.id, slug=slug, is_active=True, **data)
+                )
 
         tours = [
             {
@@ -78,7 +86,11 @@ def main() -> None:
             },
         ]
         for data in tours:
-            row = db.query(HostTour).filter(HostTour.host_id == host.id, HostTour.title == data["title"]).first()
+            row = (
+                db.query(HostTour)
+                .filter(HostTour.host_id == host.id, HostTour.title == data["title"])
+                .first()
+            )
             if row:
                 for key, value in data.items():
                     setattr(row, key, value)
@@ -86,13 +98,47 @@ def main() -> None:
                 db.add(HostTour(host_id=host.id, is_active=True, **data))
 
         db.flush()
-        experience = db.query(HostExperience).filter(HostExperience.host_id == host.id, HostExperience.title == "Pokhara Lakeside Sunrise Walk").first()
-        if experience and not db.query(HostBooking).filter(HostBooking.host_id == host.id).count():
+        experience = (
+            db.query(HostExperience)
+            .filter(
+                HostExperience.host_id == host.id,
+                HostExperience.title == "Pokhara Lakeside Sunrise Walk",
+            )
+            .first()
+        )
+        if (
+            experience
+            and not db.query(HostBooking).filter(HostBooking.host_id == host.id).count()
+        ):
             now = datetime.now(timezone.utc)
-            db.add_all([
-                HostBooking(host_id=host.id, experience_id=experience.id, guest_name="Maya Thompson", guest_email="maya@example.com", guest_phone="+1 555 0101", date=now + timedelta(days=5), guests=2, total_price=84.0, notes="We love photography and would like to join the sunrise walk.", status="upcoming"),
-                HostBooking(host_id=host.id, experience_id=experience.id, guest_name="Daniel Ortiz", guest_email="daniel@example.com", guest_phone="+1 555 0102", date=now + timedelta(days=9), guests=3, total_price=126.0, notes="Celebrating an anniversary with my partner.", status="accepted"),
-            ])
+            db.add_all(
+                [
+                    HostBooking(
+                        host_id=host.id,
+                        experience_id=experience.id,
+                        guest_name="Maya Thompson",
+                        guest_email="maya@example.com",
+                        guest_phone="+1 555 0101",
+                        date=now + timedelta(days=5),
+                        guests=2,
+                        total_price=84.0,
+                        notes="We love photography and would like to join the sunrise walk.",
+                        status="upcoming",
+                    ),
+                    HostBooking(
+                        host_id=host.id,
+                        experience_id=experience.id,
+                        guest_name="Daniel Ortiz",
+                        guest_email="daniel@example.com",
+                        guest_phone="+1 555 0102",
+                        date=now + timedelta(days=9),
+                        guests=3,
+                        total_price=126.0,
+                        notes="Celebrating an anniversary with my partner.",
+                        status="accepted",
+                    ),
+                ]
+            )
         db.commit()
         print("Host dashboard demo data is ready.")
     finally:

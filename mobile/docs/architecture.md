@@ -51,13 +51,30 @@ server rejects — a save that failed is never shown as saved.
    enforces authorization on every guide endpoint (`require_role`), the guard
    is UX only. Public `/guide/:id` profiles stay open to everyone, which is
    why `/guide/profile` is declared *before* `/guide/:id` (GoRouter takes the
-   first match).
+   first match). `/host` and everything under it requires `role == 'host'`,
+   and neither role may enter the other's workspace.
+5. Signed-out-only screens (`/sign-in`, `/sign-up`, `/onboarding`,
+   `/forgot-password`) resolve to `/home` once authenticated;
+   `/profile/edit` and `/settings/password` need a session.
 
 Five-tab `StatefulShellRoute` (Home · Explore · Trips · Inbox · Profile) plus
 full-screen routes: experience detail, guide profile, destination, booking
-flow, Maila Dai, saved, the guide workspace with its profile editor
+flow, Maila Dai, saved, password reset (`/forgot-password`), change password
+(`/settings/password`), the guide workspace with its profile editor
 (`/guide/profile`), update composer (`/guide/status/new`) and listing editor
-(`/guide/listing/new`, `/guide/listing/:id`) — guarded like `/guide`.
+(`/guide/listing/new`, `/guide/listing/:id`) — guarded like `/guide` — and the
+host workspace with its experience and tour editors.
+
+## Host workspace
+
+`/host` is a three-tab console (Experiences · Tours · Bookings) over the
+`/host/*` family, which the server confines to `role == 'host'` and to the
+caller's own rows. `PATCH /host/experiences/{id}` and `PATCH /host/tours/{id}`
+take the full create body, so both editors always submit every field. A record
+id that is not in the host's own list renders "no longer available" rather
+than an empty create form. `HostBooking` reuses the shared `BookingStatus`
+vocabulary and status chip; only an `upcoming` request offers accept/decline
+because the endpoint accepts exactly those two decisions.
 
 ## Guide workspace
 

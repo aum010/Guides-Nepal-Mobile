@@ -94,7 +94,7 @@ class _UpdateCard extends StatelessWidget {
 
   final CityUpdate update;
 
-  /// `Sunrise hike · Lakeside · 3 h ago` — only the parts that exist.
+  /// `Sunrise hike · Lakeside · 3 hr ago` — only the parts that exist.
   String get _meta {
     final parts = <String>[
       if (update.listingTitle != null) update.listingTitle!,
@@ -128,10 +128,8 @@ class _UpdateCard extends StatelessWidget {
                 backgroundColor: AppColors.surfacePeach,
                 child: Text(
                   _guideInitials,
-                  style: AppTypography.caption.copyWith(
+                  style: AppTypography.micro.copyWith(
                     color: AppColors.secondary,
-                    fontWeight: FontWeight.w700,
-                    fontSize: 10,
                   ),
                 ),
               ),
@@ -155,10 +153,9 @@ class _UpdateCard extends StatelessWidget {
                 ),
                 child: Text(
                   update.typeLabel,
-                  style: AppTypography.caption.copyWith(
+                  style: AppTypography.micro.copyWith(
                     color: AppColors.secondary,
                     fontWeight: FontWeight.w600,
-                    fontSize: 10,
                   ),
                 ),
               ),

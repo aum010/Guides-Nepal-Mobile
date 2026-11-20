@@ -5,12 +5,14 @@ by :func:`app.core.dependencies.require_role` and scoped to the authenticated
 user id.  ``guide`` is *not* in ``SELF_REGISTERABLE_ROLES``, so the only ways to
 obtain one are ``backend/seed_credentials.py`` or an admin role reassignment.
 """
-from fastapi import APIRouter, Depends, Query
+
+from fastapi import APIRouter, Depends, File, Query, UploadFile
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
 from app.core.dependencies import require_role
 from app.core.roles import GUIDE, GUIDE_CAPABILITIES, role_rank
+from app.models.guide_listing import GuideListing
 from app.models.user import User
 from app.models.booking import Booking
 from app.schemas.guide_dashboard import (
@@ -20,6 +22,7 @@ from app.schemas.guide_dashboard import (
     GuideOnboardingCreate,
     GuideStatusCreate,
 )
+from app.services.booking_service import BookingService
 from app.services.guide_dashboard_service import GuideDashboardService
 
 router = APIRouter(prefix="/guide", tags=["guide"])
@@ -28,7 +31,9 @@ GUIDE_ONLY = require_role(GUIDE)
 
 
 @router.get("/me")
-def guide_profile(guide: User = Depends(GUIDE_ONLY), db: Session = Depends(get_db)) -> dict:
+def guide_profile(
+    guide: User = Depends(GUIDE_ONLY), db: Session = Depends(get_db)
+) -> dict:
     """The signed-in guide's own record plus the capabilities its role grants."""
     return {
         "id": guide.id,
@@ -47,7 +52,9 @@ def guide_profile(guide: User = Depends(GUIDE_ONLY), db: Session = Depends(get_d
 
 
 @router.get("/bookings")
-def guide_bookings(guide: User = Depends(GUIDE_ONLY), db: Session = Depends(get_db)) -> list[dict]:
+def guide_bookings(
+    guide: User = Depends(GUIDE_ONLY), db: Session = Depends(get_db)
+) -> list[dict]:
     """Booking requests assigned to the signed-in guide only."""
     rows = (
         db.query(Booking, User)
@@ -65,7 +72,11 @@ def guide_bookings(guide: User = Depends(GUIDE_ONLY), db: Session = Depends(get_
             "guests": booking.guests,
             "price": booking.price,
             "image": booking.image,
-            "status": booking.status.value if hasattr(booking.status, "value") else booking.status,
+            "status": (
+                booking.status.value
+                if hasattr(booking.status, "value")
+                else booking.status
+            ),
             "traveler_name": f"{traveler.firstName or ''} {traveler.lastName or ''}".strip(),
             "traveler_email": traveler.email,
         }
@@ -75,7 +86,10 @@ def guide_bookings(guide: User = Depends(GUIDE_ONLY), db: Session = Depends(get_
 
 @router.patch("/bookings/{booking_id}")
 def guide_decide_booking(
-    booking_id: int, payload: dict, guide: User = Depends(GUIDE_ONLY), db: Session = Depends(get_db)
+    booking_id: int,
+    payload: dict,
+    guide: User = Depends(GUIDE_ONLY),
+    db: Session = Depends(get_db),
 ) -> dict:
     """Accept / reject / complete a booking assigned to the signed-in guide."""
     from fastapi import HTTPException
@@ -83,7 +97,10 @@ def guide_decide_booking(
 
     status = (payload or {}).get("status")
     if status not in {"accepted", "rejected", "completed", "cancelled"}:
-        raise HTTPException(status_code=422, detail="Status must be accepted, rejected, completed or cancelled")
+        raise HTTPException(
+            status_code=422,
+            detail="Status must be accepted, rejected, completed or cancelled",
+        )
     booking = (
         db.query(Booking)
         .filter(Booking.id == booking_id, Booking.guide_user_id == guide.id)
@@ -91,7 +108,25 @@ def guide_decide_booking(
     )
     if not booking:
         raise HTTPException(status_code=404, detail="Booking not found")
-    booking.status = BookingStatus(status)  # type: ignore[assignment]
+    # Declining or cancelling releases the seats a published listing was
+    # holding; accepting keeps them. Doing this only on the transition keeps a
+    # repeated decision from freeing the same seats twice.
+    if booking.status not in (BookingStatus.rejected, BookingStatus.cancelled):
+        if status in {"rejected", "cancelled"}:
+            BookingService(db).release_capacity(booking)
+    elif status in {"accepted", "completed"}:
+        # Re-opening a declined request has to take the seats back.
+        listing_id = booking.guide_listing_id
+        if listing_id is not None:
+            listing = db.get(GuideListing, listing_id)
+            if listing is not None and (
+                int(listing.booked_guests or 0) + int(booking.guests or 0)
+                <= int(listing.max_guests or 0)
+            ):
+                listing.booked_guests = int(listing.booked_guests or 0) + int(
+                    booking.guests or 0
+                )
+    booking.status = BookingStatus(status)
     db.commit()
     db.refresh(booking)
     value = booking.status.value if hasattr(booking.status, "value") else booking.status
@@ -99,12 +134,18 @@ def guide_decide_booking(
 
 
 @router.get("/dashboard")
-def guide_dashboard(guide: User = Depends(GUIDE_ONLY), db: Session = Depends(get_db)) -> dict:
+def guide_dashboard(
+    guide: User = Depends(GUIDE_ONLY), db: Session = Depends(get_db)
+) -> dict:
     """Aggregated dashboard payload: profile + listings + bookings + capacity."""
     service = GuideDashboardService(db)
     listings = service.list_listings(int(guide.id))
     rows = db.query(Booking).filter(Booking.guide_user_id == guide.id).all()
-    upcoming = sum(1 for b in rows if str(getattr(b.status, "value", b.status)) in {"upcoming", "accepted"})
+    upcoming = sum(
+        1
+        for b in rows
+        if str(getattr(b.status, "value", b.status)) in {"upcoming", "accepted"}
+    )
     total_guests = sum(int(b.guests or 0) for b in rows)
     total_capacity = sum(int(item["max_guests"] or 0) for item in listings)
     booked_capacity = sum(int(item["booked_guests"] or 0) for item in listings)
@@ -130,33 +171,47 @@ def guide_dashboard(guide: User = Depends(GUIDE_ONLY), db: Session = Depends(get
 
 
 @router.get("/onboarding")
-def guide_get_onboarding(guide: User = Depends(GUIDE_ONLY), db: Session = Depends(get_db)) -> dict:
+def guide_get_onboarding(
+    guide: User = Depends(GUIDE_ONLY), db: Session = Depends(get_db)
+) -> dict:
     profile = GuideDashboardService(db).get_onboarding(int(guide.id))
-    return {"onboarding": profile, "completed": bool(profile and profile.get("onboarding_completed"))}
+    return {
+        "onboarding": profile,
+        "completed": bool(profile and profile.get("onboarding_completed")),
+    }
 
 
 @router.put("/onboarding")
 def guide_save_onboarding(
-    payload: GuideOnboardingCreate, guide: User = Depends(GUIDE_ONLY), db: Session = Depends(get_db)
+    payload: GuideOnboardingCreate,
+    guide: User = Depends(GUIDE_ONLY),
+    db: Session = Depends(get_db),
 ) -> dict:
     return {"onboarding": GuideDashboardService(db).save_onboarding(guide, payload)}
 
 
 @router.get("/listings")
-def guide_list_listings(guide: User = Depends(GUIDE_ONLY), db: Session = Depends(get_db)) -> list:
+def guide_list_listings(
+    guide: User = Depends(GUIDE_ONLY), db: Session = Depends(get_db)
+) -> list:
     return GuideDashboardService(db).list_listings(int(guide.id))
 
 
 @router.post("/listings", status_code=201)
 def guide_create_listing(
-    payload: GuideListingCreate, guide: User = Depends(GUIDE_ONLY), db: Session = Depends(get_db)
+    payload: GuideListingCreate,
+    guide: User = Depends(GUIDE_ONLY),
+    db: Session = Depends(get_db),
 ) -> dict:
     return GuideDashboardService(db).create_listing(guide, payload)
 
 
 @router.patch("/listings/{listing_id}")
 def guide_update_listing(
-    listing_id: int, payload: GuideListingUpdate, guide: User = Depends(GUIDE_ONLY), db: Session = Depends(get_db)
+    listing_id: int,
+    payload: GuideListingUpdate,
+    guide: User = Depends(GUIDE_ONLY),
+    db: Session = Depends(get_db),
 ) -> dict:
     return GuideDashboardService(db).update_listing(int(guide.id), listing_id, payload)
 
@@ -167,6 +222,24 @@ def guide_delete_listing(
 ) -> dict:
     GuideDashboardService(db).delete_listing(int(guide.id), listing_id)
     return {"status": "ok"}
+
+
+@router.post("/listings/{listing_id}/photo")
+async def guide_upload_listing_photo(
+    listing_id: int,
+    file: UploadFile = File(...),
+    guide: User = Depends(GUIDE_ONLY),
+    db: Session = Depends(get_db),
+) -> dict:
+    """Set the photo travellers see for this listing.
+
+    JPEG/PNG/WebP up to 5 MB; the bytes are validated, not the filename. The
+    previous photo is deleted when it is replaced.
+    """
+    contents = await file.read()
+    return GuideDashboardService(db).set_listing_photo(
+        int(guide.id), listing_id, contents, file.content_type
+    )
 
 
 @router.patch("/listings/{listing_id}/capacity")
@@ -190,7 +263,9 @@ def guide_list_status(
 
 @router.post("/status", status_code=201)
 def guide_post_status(
-    payload: GuideStatusCreate, guide: User = Depends(GUIDE_ONLY), db: Session = Depends(get_db)
+    payload: GuideStatusCreate,
+    guide: User = Depends(GUIDE_ONLY),
+    db: Session = Depends(get_db),
 ) -> dict:
     return GuideDashboardService(db).post_status(guide, payload)
 
@@ -201,4 +276,3 @@ def guide_delete_status(
 ) -> dict:
     GuideDashboardService(db).delete_status(int(guide.id), status_id)
     return {"status": "ok"}
-

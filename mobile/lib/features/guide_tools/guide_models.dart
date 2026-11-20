@@ -16,6 +16,8 @@ class GuideListing {
     required this.availableSpots,
     required this.occupancyPct,
     required this.isActive,
+    this.publicSlug,
+    this.heroImage,
     this.area,
     this.itinerary,
     this.meetingPoint,
@@ -38,6 +40,13 @@ class GuideListing {
   final int occupancyPct;
   final bool isActive;
 
+  /// Catalogue address of this listing (`listing-<slug>`) once it is live.
+  /// A paused listing keeps its slug and comes back at the same URL.
+  final String? publicSlug;
+
+  /// The guide's own photo (`/uploads/listings/...`), null until uploaded.
+  final String? heroImage;
+
   factory GuideListing.fromJson(Map<String, dynamic> json) => GuideListing(
         id: (json['id'] as num?)?.toInt() ?? 0,
         title: json['title'] as String? ?? '',
@@ -55,6 +64,8 @@ class GuideListing {
         availableSpots: (json['available_spots'] as num?)?.toInt() ?? 0,
         occupancyPct: (json['occupancy_pct'] as num?)?.toInt() ?? 0,
         isActive: json['is_active'] as bool? ?? true,
+        publicSlug: json['public_slug'] as String?,
+        heroImage: json['hero_image'] as String?,
       );
 }
 

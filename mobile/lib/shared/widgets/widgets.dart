@@ -5,6 +5,7 @@ import '../../app/theme/app_spacing.dart';
 import '../../app/theme/app_typography.dart';
 
 export 'app_button.dart';
+export 'app_logo.dart';
 export 'app_text_field.dart';
 export 'city_updates_section.dart';
 export 'experience_card.dart';
@@ -12,6 +13,7 @@ export 'floating_nav_bar.dart';
 export 'guide_card.dart';
 export 'network_image_view.dart';
 export 'state_views.dart';
+export 'status_chip.dart';
 
 /// Page header shared by the primary tabs: title, optional supporting line
 /// and an optional trailing action, all on the same gutter and baseline so

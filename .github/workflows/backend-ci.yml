@@ -42,7 +42,7 @@ jobs:
           cache-dependency-path: backend/requirements.txt
       - run: pip install -r requirements.txt
       - name: Run tests with coverage
-        run: pytest --cov=app --cov-report=xml --cov-report=html
+        run: pytest --cov=app --cov-report=xml --cov-report=html --cov-fail-under=80
         env:
           PYTHONPATH: ${{ github.workspace }}/backend
       - name: Upload coverage to Codecov

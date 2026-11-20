@@ -127,7 +127,7 @@ class GuideCard extends StatelessWidget {
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         const Icon(Icons.star_rounded,
-                            size: 14, color: AppColors.accent),
+                            size: 14, color: AppColors.iconRating),
                         const SizedBox(width: 3),
                         Text(
                           guide.rating.toStringAsFixed(1),
@@ -140,7 +140,6 @@ class GuideCard extends StatelessWidget {
                           '(${guide.reviews})',
                           style: AppTypography.caption.copyWith(
                             color: AppColors.textTertiary,
-                            fontSize: 11,
                           ),
                         ),
                       ],
@@ -152,7 +151,6 @@ class GuideCard extends StatelessWidget {
                       guide.languages.take(3).join(' · '),
                       style: AppTypography.caption.copyWith(
                         color: AppColors.textTertiary,
-                        fontSize: 11,
                       ),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,

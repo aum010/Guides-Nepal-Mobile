@@ -1,5 +1,6 @@
-from typing import List, Optional
+from typing import Any, List, Optional
 import json
+import logging
 import os
 import uuid
 
@@ -17,8 +18,11 @@ from app.models.booking import HostExperience
 from app.models.support_ticket import SupportTicket
 from app.schemas.guide_dashboard import PublicGuideUpdate
 from app.schemas.public import ExperienceResponse, GuideResponse
+from app.services.catalog_service import CatalogService
 from app.services.guide_dashboard_service import GuideDashboardService
 from app.services.guide_service import GuideService
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
@@ -35,7 +39,7 @@ class InquiryCreate(BaseModel):
 
 
 @router.post("/inquiries", status_code=status.HTTP_201_CREATED)
-def create_inquiry(payload: InquiryCreate, db: Session = Depends(get_db)):
+def create_inquiry(payload: InquiryCreate, db: Session = Depends(get_db)) -> dict:
     """Public contact / guide-request form. Stored as a support ticket so
     the support team can triage it from the dashboard."""
     ticket = SupportTicket(
@@ -63,7 +67,7 @@ class PublicHostApplicationCreate(BaseModel):
 @router.post("/host-applications", status_code=status.HTTP_201_CREATED)
 def submit_host_application(
     payload: PublicHostApplicationCreate, db: Session = Depends(get_db)
-):
+) -> dict:
     """Public host registration form from the marketing website.
 
     Host-only: experience providers that list and manage experiences.
@@ -97,7 +101,7 @@ class PublicGuideApplicationCreate(BaseModel):
 @router.post("/guide-applications", status_code=status.HTTP_201_CREATED)
 def submit_guide_application(
     payload: PublicGuideApplicationCreate, db: Session = Depends(get_db)
-):
+) -> dict:
     """Public guide registration form from the marketing website.
 
     Guide-only: individuals who lead tours. Stored in the dedicated
@@ -155,7 +159,7 @@ async def submit_host_application_wizard(
     license: UploadFile = File(None),
     certificate: UploadFile = File(None),
     db: Session = Depends(get_db),
-):
+) -> dict:
     if not all(
         [
             first_name.strip(),
@@ -259,7 +263,7 @@ async def submit_host_application_wizard(
 
 
 # Mock Data to match frontend types exactly
-MOCK_GUIDES = [
+MOCK_GUIDES: list[dict[str, Any]] = [
     {
         "id": 1,
         "name": "Ram Bahadur",
@@ -318,7 +322,7 @@ MOCK_GUIDES = [
     },
 ]
 
-MOCK_EXPERIENCES = [
+MOCK_EXPERIENCES: list[dict[str, Any]] = [
     {
         "id": 1,
         "slug": "bhaktapur-heritage-walk",
@@ -565,7 +569,15 @@ def list_experiences(
             if public_row:
                 results.append(public_row)
     except Exception:
-        pass
+        logger.warning("Live host experiences unavailable", exc_info=True)
+
+    # Published guide listings: a guide's own trips become catalogue rows, so
+    # writing a listing is what makes it bookable rather than a dead end in the
+    # guide's dashboard. Paused listings and deactivated guides drop out here.
+    try:
+        results.extend(CatalogService(db).published_experiences(city=city))
+    except Exception:
+        logger.warning("Published guide listings unavailable", exc_info=True)
 
     # Filter by city
     if city:
@@ -596,13 +608,15 @@ def list_experiences(
 
     # Sort results
     if sort == "price_low":
-        results.sort(key=lambda x: x.get("price", 0))
+        results.sort(key=lambda x: x.get("price") or 0)
     elif sort == "price_high":
-        results.sort(key=lambda x: x.get("price", 0), reverse=True)
+        results.sort(key=lambda x: x.get("price") or 0, reverse=True)
     elif sort == "rating":
-        results.sort(key=lambda x: x.get("rating", 0), reverse=True)
+        # A listing with no reviews yet has a null rating; without the `or 0`
+        # comparing it against a float raises mid-sort.
+        results.sort(key=lambda x: x.get("rating") or 0, reverse=True)
     elif sort == "popular":
-        results.sort(key=lambda x: x.get("reviews", 0), reverse=True)
+        results.sort(key=lambda x: x.get("reviews") or 0, reverse=True)
 
     return results
 
@@ -612,6 +626,16 @@ def get_experience(slug: str, db: Session = Depends(get_db)) -> dict:
     for exp in MOCK_EXPERIENCES:
         if exp["slug"] == slug:
             return exp
+    # Published guide listings are addressed as listing-{slug}.
+    if slug.startswith("listing-"):
+        try:
+            published = CatalogService(db).published_experience(slug)
+        except Exception:
+            logger.warning("Guide listing lookup failed", exc_info=True)
+            published = None
+        if published:
+            return published
+        raise HTTPException(status_code=404, detail="Experience not found")
     # Live host experiences are addressed as host-{slug} on the frontend.
     if slug.startswith("host-"):
         try:
@@ -628,25 +652,47 @@ def get_experience(slug: str, db: Session = Depends(get_db)) -> dict:
                 if public_row:
                     return public_row
         except Exception:
-            pass
+            logger.warning("Host experience lookup failed", exc_info=True)
     raise HTTPException(status_code=404, detail="Experience not found")
 
 
 @router.get("/guides", response_model=List[GuideResponse])
 def list_guides(
     city: Optional[str] = None, db: Session = Depends(get_db)
-) -> List[Guide]:
+) -> List[dict]:
+    """Legacy catalogue guides plus real guide accounts, in one shape.
+
+    The two are separate tables: ``guides`` is display-only catalogue content,
+    while a signed-in guide's onboarding profile lives in ``guide_profiles``.
+    A traveller browsing guides should see both, so the accounts are appended
+    with a namespaced id (see ``CatalogService``) that ``GET /guides/{id}``
+    resolves back to the account.
+    """
     service = GuideService(db)
-    return service.get_all_guides(city)
+    result: List[dict] = list(service.get_all_guides(city))
+    try:
+        result.extend(CatalogService(db).public_guides(city=city))
+    except Exception:
+        logger.warning("Published guide profiles unavailable", exc_info=True)
+    return result
 
 
 @router.get("/guides/{id}", response_model=GuideResponse)
 def get_guide(id: int, db: Session = Depends(get_db)) -> dict:
     service = GuideService(db)
     guide = service.get_guide(id)
-    if not guide:
-        raise HTTPException(status_code=404, detail="Guide not found")
-    return guide
+    if guide:
+        return guide
+    # Guide-account profiles carry a namespaced id; legacy catalogue ids never
+    # reach that range, so the two lookups cannot shadow each other.
+    try:
+        published = CatalogService(db).public_guide(id)
+    except Exception:
+        logger.warning("Guide account lookup failed", exc_info=True)
+        published = None
+    if published:
+        return published
+    raise HTTPException(status_code=404, detail="Guide not found")
 
 
 @router.get("/updates", response_model=List[PublicGuideUpdate])

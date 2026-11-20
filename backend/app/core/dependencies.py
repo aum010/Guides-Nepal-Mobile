@@ -1,7 +1,7 @@
 from fastapi import Depends, HTTPException, Request, status
 from sqlalchemy.orm import Session
 
-from typing import Optional
+from typing import Callable, Optional
 
 from app.core.database import get_db
 from app.core.security import decode_access_token
@@ -73,7 +73,7 @@ def get_optional_user(
         return None
 
 
-def require_role(*allowed_roles: str):
+def require_role(*allowed_roles: str) -> Callable[..., User]:
     def checker(current_user: User = Depends(get_current_user)) -> User:
         if not has_access(current_user.role, *allowed_roles):
             raise HTTPException(

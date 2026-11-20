@@ -158,7 +158,7 @@ class _ExploreScreenState extends ConsumerState<ExploreScreen> {
                             return ExperienceCard(
                               experience: e,
                               imageHeight: 146,
-                              isSaved: favorites.isSaved(e.slug),
+                              isSaved: favorites.isSaved(e.slug, experienceId: e.id),
                               onTap: () =>
                                   context.push('/experience/${e.slug}'),
                               onToggleSave: () => _toggleSave(e),
@@ -178,7 +178,9 @@ class _ExploreScreenState extends ConsumerState<ExploreScreen> {
   /// carries the result context instead of a floating caption line.
   String _resultSummary(int count, String? city) {
     final noun = count == 1 ? '1 experience' : '$count experiences';
-    if (city == null || city.isEmpty) return '$noun across Nepal';
+    // "in Nepal" not "across Nepal": the shorter phrase holds one line beside
+    // the sort control, where the longer one orphaned the country on its own.
+    if (city == null || city.isEmpty) return '$noun in Nepal';
     return '$noun in $city';
   }
 

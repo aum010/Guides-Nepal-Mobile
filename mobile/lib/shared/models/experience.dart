@@ -2,9 +2,10 @@ import 'guide.dart';
 
 /// Experience (tour) as exposed by `GET /api/v1/experiences`.
 ///
-/// The backend serves seeded content rows plus live host experiences;
-/// optional fields (`city`, `category`, `guides`) are present on some rows
-/// and are parsed defensively.
+/// Three kinds of row share this shape: seeded catalogue content, host-owned
+/// experiences, and **published guide listings** (`listing-<slug>`). The last
+/// group is the only one with real capacity and trip detail, so those fields
+/// are nullable and parsed defensively.
 class Experience {
   const Experience({
     required this.id,
@@ -20,6 +21,13 @@ class Experience {
     this.city,
     this.category,
     this.guides = const [],
+    this.listingId,
+    this.area,
+    this.difficulty,
+    this.meetingPoint,
+    this.itinerary,
+    this.maxGuests,
+    this.availableSpots,
   });
 
   final int id;
@@ -35,6 +43,23 @@ class Experience {
   final String? city;
   final String? category;
   final List<Guide> guides;
+
+  /// The guide's own listing behind this row, present only on published
+  /// listings. Booking such a row goes to that listing's guide.
+  final int? listingId;
+  final String? area;
+  final String? difficulty;
+  final String? meetingPoint;
+  final String? itinerary;
+  final int? maxGuests;
+
+  /// Seats still free on a listing. `null` for seeded/host rows, which track
+  /// no capacity at all.
+  final int? availableSpots;
+
+  bool get isGuideListing => listingId != null;
+
+  bool get isSoldOut => availableSpots != null && availableSpots! <= 0;
 
   factory Experience.fromJson(Map<String, dynamic> json) {
     final hostJson = json['host'];
@@ -70,6 +95,13 @@ class Experience {
               .map(Guide.fromJson)
               .toList(growable: false)
           : const [],
+      listingId: (json['listingId'] as num?)?.toInt(),
+      area: json['area'] as String?,
+      difficulty: json['difficulty'] as String?,
+      meetingPoint: json['meetingPoint'] as String?,
+      itinerary: json['itinerary'] as String?,
+      maxGuests: (json['maxGuests'] as num?)?.toInt(),
+      availableSpots: (json['availableSpots'] as num?)?.toInt(),
     );
   }
 
@@ -87,5 +119,12 @@ class Experience {
         'city': city,
         'category': category,
         'guides': guides.map((g) => g.toJson()).toList(),
+        'listingId': listingId,
+        'area': area,
+        'difficulty': difficulty,
+        'meetingPoint': meetingPoint,
+        'itinerary': itinerary,
+        'maxGuests': maxGuests,
+        'availableSpots': availableSpots,
       };
 }

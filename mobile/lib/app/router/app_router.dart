@@ -4,6 +4,8 @@ import 'package:go_router/go_router.dart';
 
 import '../../features/ai_assistant/ai_assistant_screen.dart';
 import '../../features/auth/auth_controller.dart';
+import '../../features/auth/change_password_screen.dart';
+import '../../features/auth/forgot_password_screen.dart';
 import '../../features/auth/sign_in_screen.dart';
 import '../../features/auth/sign_up_screen.dart';
 import '../../features/bookings/booking_flow.dart';
@@ -18,8 +20,13 @@ import '../../features/guide_tools/listing_editor_screen.dart';
 import '../../features/help/contact_screen.dart';
 import '../../features/help/faq_screen.dart';
 import '../../features/home/home_shell.dart';
+import '../../features/host_tools/host_experience_editor_screen.dart';
+import '../../features/host_tools/host_shell.dart';
+import '../../features/host_tools/host_tour_editor_screen.dart';
+import '../../features/inbox/conversation_screen.dart';
 import '../../features/inbox/inbox_screen.dart';
 import '../../features/onboarding/onboarding_screen.dart';
+import '../../features/profile/profile_edit_screen.dart';
 import '../../features/profile/profile_screen.dart';
 import '../../features/saved/saved_screen.dart';
 import '../../features/splash/splash_screen.dart';
@@ -40,7 +47,10 @@ String? authRedirect(AuthState auth, String location) {
   }
 
   final signingIn =
-      location == '/sign-in' || location == '/sign-up' || location == '/onboarding';
+      location == '/sign-in' ||
+      location == '/sign-up' ||
+      location == '/onboarding' ||
+      location == '/forgot-password';
 
   // Help pages a signed-out visitor must reach without an account — a
   // traveller locked out of their session still needs support (the platform
@@ -59,6 +69,7 @@ String? authRedirect(AuthState auth, String location) {
   if (location == '/splash' ||
       location == '/sign-in' ||
       location == '/sign-up' ||
+      location == '/forgot-password' ||
       location == '/onboarding') {
     return '/home';
   }
@@ -67,6 +78,17 @@ String? authRedirect(AuthState auth, String location) {
   // editor are closed to travelers. Guide profiles (/guide/:id) are public
   // discovery pages and stay open to everyone.
   if (_isGuideWorkspace(location) && !auth.isGuide) return '/home';
+
+  // The host workspace is a different role with different records — a guide
+  // must not land in it (and vice versa). The server enforces the same rule.
+  if (_isHostWorkspace(location) && !auth.isHost) return '/home';
+
+  // Editing your own profile needs a session; the Profile tab itself is
+  // reachable signed out (it shows a sign-in prompt), this screen is not.
+  if (location == '/profile/edit' && !auth.isAuthenticated) return '/sign-in';
+  if (location == '/settings/password' && !auth.isAuthenticated) {
+    return '/sign-in';
+  }
   return null;
 }
 
@@ -77,6 +99,11 @@ bool _isGuideWorkspace(String location) =>
     location == '/guide/profile' ||
     location.startsWith('/guide/listing') ||
     location.startsWith('/guide/status');
+
+/// `/host` and its editors. Nothing else lives under this prefix, so the whole
+/// subtree is host-only.
+bool _isHostWorkspace(String location) =>
+    location == '/host' || location.startsWith('/host/');
 
 final appRouterProvider = Provider<GoRouter>((ref) {
   final auth = ref.watch(authControllerProvider);
@@ -90,6 +117,10 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(path: '/onboarding', builder: (_, __) => const OnboardingScreen()),
       GoRoute(path: '/sign-in', builder: (_, __) => const SignInScreen()),
       GoRoute(path: '/sign-up', builder: (_, __) => const SignUpScreen()),
+      GoRoute(
+        path: '/forgot-password',
+        builder: (_, __) => const ForgotPasswordScreen(),
+      ),
 
       // Bottom-tab shell.
       StatefulShellRoute.indexedStack(
@@ -119,6 +150,16 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         parentNavigatorKey: _rootNavigatorKey,
         builder: (_, state) =>
             ExperienceDetailScreen(slug: state.pathParameters['slug']!),
+      ),
+      // A traveler's message thread — full-screen over the shell, like
+      // the other detail routes.
+      GoRoute(
+        path: '/inbox/:id',
+        parentNavigatorKey: _rootNavigatorKey,
+        builder: (_, state) => ConversationScreen(
+          conversationId:
+              int.tryParse(state.pathParameters['id'] ?? '') ?? 0,
+        ),
       ),
       // Declared before `/guide/:id`: GoRouter takes the first match, and a
       // guide's own profile editor must not resolve to a public profile page.
@@ -150,6 +191,16 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         path: '/ai',
         parentNavigatorKey: _rootNavigatorKey,
         builder: (_, __) => const AiAssistantScreen(),
+      ),
+      GoRoute(
+        path: '/profile/edit',
+        parentNavigatorKey: _rootNavigatorKey,
+        builder: (_, __) => const ProfileEditScreen(),
+      ),
+      GoRoute(
+        path: '/settings/password',
+        parentNavigatorKey: _rootNavigatorKey,
+        builder: (_, __) => const ChangePasswordScreen(),
       ),
       GoRoute(
         path: '/saved',
@@ -192,6 +243,38 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         // empty create form.
         builder: (_, state) => ListingEditorScreen(
           listingId: int.tryParse(state.pathParameters['id'] ?? '') ?? -1,
+        ),
+      ),
+
+      // Host workspace (host-role only). The `new` routes are declared before
+      // the `:id` ones so "new" is never parsed as an id.
+      GoRoute(
+        path: '/host',
+        parentNavigatorKey: _rootNavigatorKey,
+        builder: (_, __) => const HostShell(),
+      ),
+      GoRoute(
+        path: '/host/experience/new',
+        parentNavigatorKey: _rootNavigatorKey,
+        builder: (_, __) => const HostExperienceEditorScreen(),
+      ),
+      GoRoute(
+        path: '/host/experience/:id',
+        parentNavigatorKey: _rootNavigatorKey,
+        builder: (_, state) => HostExperienceEditorScreen(
+          experienceId: int.tryParse(state.pathParameters['id'] ?? '') ?? -1,
+        ),
+      ),
+      GoRoute(
+        path: '/host/tour/new',
+        parentNavigatorKey: _rootNavigatorKey,
+        builder: (_, __) => const HostTourEditorScreen(),
+      ),
+      GoRoute(
+        path: '/host/tour/:id',
+        parentNavigatorKey: _rootNavigatorKey,
+        builder: (_, state) => HostTourEditorScreen(
+          tourId: int.tryParse(state.pathParameters['id'] ?? '') ?? -1,
         ),
       ),
     ],

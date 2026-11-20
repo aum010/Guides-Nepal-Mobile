@@ -1,0 +1,26 @@
+# Build context exclusions: keep the image free of local virtualenvs, caches
+# and generated artifacts (they are recreated inside the image where needed).
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+coverage.xml
+htmlcov/
+*.log
+*.sqlite3
+.env
+.env.*
+.git/
+.gitignore
+docs/
+*.md
+_*.py
+_*.txt
+mig_out.txt
+orm_ddl.txt
+Dockerfile
+docker-compose.yml

@@ -139,7 +139,7 @@ class _GuideBody extends ConsumerWidget {
                 Row(
                   children: [
                     const Icon(Icons.star_rounded,
-                        size: 18, color: AppColors.accent),
+                        size: 18, color: AppColors.iconRating),
                     const SizedBox(width: 4),
                     Text(guide.rating.toStringAsFixed(1),
                         style: AppTypography.bodyMedium),
@@ -242,7 +242,7 @@ class _GuideExperienceTile extends ConsumerWidget {
     return ExperienceCard(
       experience: experience,
       onTap: () => context.push('/experience/${experience.slug}'),
-      isSaved: favs.isSaved(experience.slug),
+      isSaved: favs.isSaved(experience.slug, experienceId: experience.id),
       onToggleSave: () async {
         if (!ref.read(authControllerProvider).isAuthenticated) {
           context.push('/sign-in');

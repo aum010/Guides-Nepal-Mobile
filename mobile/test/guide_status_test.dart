@@ -558,7 +558,7 @@ void main() {
       expect(find.text('Only two spots left for Saturday.'), findsOneWidget);
       // The listing id resolves to its title through the listings provider.
       expect(find.textContaining('Sunrise hike · 6/8 spots'), findsOneWidget);
-      expect(find.textContaining('3 h ago'), findsOneWidget);
+      expect(find.textContaining('3 hr ago'), findsOneWidget);
       expect(
         find.textContaining('All experiences · Lakeside · 10 min ago'),
         findsOneWidget,

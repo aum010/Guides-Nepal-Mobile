@@ -35,16 +35,17 @@ class Review {
 
 /// Server bookmark (`/profile/bookmarks`).
 ///
-/// The backend stores a free-form title/city/image/link tuple rather than
-/// an experience id, so the client matches on [link] (which we always set
-/// to the experience slug) for de-duplication. This is documented as a
-/// contract limitation in `docs/api-gaps.md`.
+/// Bookmarks now carry an optional `experience_id`, so a save resolves back to
+/// the catalogue row directly. Rows created before that field existed (and any
+/// written by the web app) only have the free-form tuple, so [link] — which the
+/// app always sets to the experience slug — remains as a fallback.
 class Bookmark {
   const Bookmark({
     required this.id,
     required this.title,
     required this.userId,
     required this.createdAt,
+    this.experienceId,
     this.city,
     this.image,
     this.link,
@@ -54,6 +55,7 @@ class Bookmark {
   final String title;
   final int userId;
   final DateTime createdAt;
+  final int? experienceId;
   final String? city;
   final String? image;
   final String? link;
@@ -62,6 +64,7 @@ class Bookmark {
         id: (json['id'] as num?)?.toInt() ?? 0,
         title: json['title'] as String? ?? '',
         userId: (json['user_id'] as num?)?.toInt() ?? 0,
+        experienceId: (json['experience_id'] as num?)?.toInt(),
         city: json['city'] as String?,
         image: json['image'] as String?,
         link: json['link'] as String?,
@@ -74,5 +77,6 @@ class Bookmark {
         'city': city,
         'image': image,
         'link': link,
+        if (experienceId != null) 'experience_id': experienceId,
       };
 }

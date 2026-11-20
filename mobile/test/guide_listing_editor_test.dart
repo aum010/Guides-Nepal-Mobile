@@ -35,10 +35,12 @@ Map<String, dynamic> _listingJson({
   int maxGuests = 8,
   int bookedGuests = 2,
   bool isActive = true,
+  String? heroImage,
 }) =>
     {
       'id': id,
       'title': title,
+      'hero_image': heroImage,
       'category': category,
       'city': city,
       'area': area,
@@ -115,6 +117,21 @@ class _FakeGuideApi extends ApiClient {
   }) async {
     calls.add(('POST', path, data));
     _maybeFail();
+    final photo = RegExp(r'^/guide/listings/(\d+)/photo$').firstMatch(path);
+    if (photo != null) {
+      final id = int.parse(photo.group(1)!);
+      final index = listings.indexWhere((l) => l['id'] == id);
+      if (index == -1) {
+        throw ApiException(
+            kind: ApiFailureKind.notFound, message: 'Listing not found');
+      }
+      final updated = {
+        ...listings[index],
+        'hero_image': '/uploads/listings/$id/uploaded.png',
+      };
+      listings[index] = updated;
+      return _ok(Map<String, dynamic>.of(updated));
+    }
     if (path != '/guide/listings') {
       throw ApiException(
           kind: ApiFailureKind.notFound, message: 'Unexpected POST $path');
@@ -329,6 +346,43 @@ void main() {
     });
   });
 
+  group('listing photo', () {
+    test('upload sends a multipart file, not JSON', () async {
+      final fake = _FakeGuideApi([_listingJson()]);
+
+      final listing = await GuideRepository(fake).uploadListingPhoto(
+        3,
+        bytes: const [1, 2, 3, 4],
+        filename: 'ridge.png',
+        contentType: 'image/png',
+      );
+
+      final call = fake.calls.singleWhere((c) => c.$1 == 'POST');
+      expect(call.$2, '/guide/listings/3/photo');
+      final form = call.$3;
+      expect(form, isA<FormData>());
+      final part = (form as FormData).files.single;
+      expect(part.key, 'file');
+      expect(part.value.filename, 'ridge.png');
+      // Without this the server sees application/octet-stream and refuses it.
+      expect(part.value.contentType?.mimeType, 'image/png');
+      expect(listing.heroImage, '/uploads/listings/3/uploaded.png');
+    });
+
+    test('clearing the photo patches an explicit null', () async {
+      final fake = _FakeGuideApi(
+        [_listingJson(heroImage: '/uploads/listings/3/old.png')],
+      );
+
+      final listing = await GuideRepository(fake).removeListingPhoto(3);
+
+      final call = fake.calls.singleWhere((c) => c.$1 == 'PATCH');
+      expect(call.$2, '/guide/listings/3');
+      expect((call.$3! as Map)['hero_image'], isNull);
+      expect(listing.heroImage, isNull);
+    });
+  });
+
   group('listing editor', () {
     late _FakeGuideApi fake;
     late bool? popResult;
@@ -474,6 +528,26 @@ void main() {
       expect((patch.$3! as Map)['title'], 'Sunrise hike to Sarangkot ridge');
       expect(fake.listings.single['title'], 'Sunrise hike to Sarangkot ridge');
       expect(popResult, isTrue);
+    });
+
+    testWidgets('a stored photo can be removed without saving the form',
+        (tester) async {
+      fake.listings[0]['hero_image'] = '/uploads/listings/3/ridge.png';
+      await pumpEditor(tester, listingId: 3);
+
+      expect(find.text('Change photo'), findsOneWidget);
+
+      await tester.tap(find.widgetWithText(TextButton, 'Remove'));
+      await tester.pumpAndSettle();
+
+      final patch = fake.calls.singleWhere((c) => c.$1 == 'PATCH');
+      expect(patch.$2, '/guide/listings/3');
+      expect((patch.$3! as Map)['hero_image'], isNull);
+      expect(fake.listings.single['hero_image'], isNull);
+      // The field now offers to add one again.
+      expect(find.text('Add photo'), findsOneWidget);
+      await tester.pump(const Duration(seconds: 5));
+      await tester.pumpAndSettle();
     });
 
     testWidgets('the visibility switch pauses the listing on save',

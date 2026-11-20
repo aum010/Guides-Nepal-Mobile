@@ -10,24 +10,41 @@ class FloatingNavItem {
     required this.icon,
     required this.selectedIcon,
     required this.label,
+    this.badgeCount = 0,
   });
 
   final IconData icon;
   final IconData selectedIcon;
   final String label;
+
+  /// Unread items waiting on this tab (0 hides the badge).
+  final int badgeCount;
 }
 
-/// Floating pill navigation — the primary tab switcher.
+/// Bar panel corner radius: a strongly rounded rectangle, not a full pill —
+/// at this height a pill reads as a chip rather than as chrome.
+const double _kBarRadius = AppSpacing.radiusXxl;
+
+/// Diameter of the raised disc and the width of the cream halo outlined
+/// around it.
+const double _kBadgeDiameter = 48;
+const double _kHaloWidth = 3;
+
+/// Floating tab bar — the primary tab switcher.
 ///
-/// The active tab lives in a raised circular badge that overlaps the bar's
-/// top edge; the bar's outline dips into a concentric notch around it so
-/// the badge reads as *seated in* the bar rather than floating over it.
-/// Switching tabs blends three motions: the badge and notch glide to the
-/// new slot together (so the notch never lags the icon), the badge pops
-/// in scale as it lands, and the label fades its colour and weight.
+/// The active tab lives in a raised disc that overlaps the bar's top edge;
+/// the bar's outline dips into a concentric notch around it, and the disc's
+/// cream halo keeps a clean ring between the two. The disc is the bar's own
+/// surface carrying the glyph in brand navy — not a solid brand plate — so
+/// the chrome stays quiet over photography and only the glyph plus the
+/// label colour carry the active state.
 ///
-/// Geometry is deliberate: layout height is identical to the old flat pill,
-/// so screens above need no extra bottom padding — only the badge paints
+/// Switching tabs blends three motions: the disc and notch glide to the new
+/// slot together (so the notch never lags the icon), the disc pops in scale
+/// as it lands, and the label fades its colour and weight.
+///
+/// Geometry is deliberate: layout height is identical to the earlier flat
+/// bar, so screens above need no extra bottom padding — only the disc paints
 /// above the bar's box (the Stack does not clip).
 class FloatingNavBar extends StatefulWidget {
   const FloatingNavBar({
@@ -46,18 +63,19 @@ class FloatingNavBar extends StatefulWidget {
 }
 
 class _FloatingNavBarState extends State<FloatingNavBar> {
-  /// Bar height — unchanged from the flat-pill version.
+  /// Bar height — unchanged from the earlier flat bar, so screens above
+  /// need no extra bottom padding.
   static const double _barHeight = 68;
 
-  /// Badge diameter and its centre relative to the bar's top edge
-  /// (negative = above it): roughly two thirds of the badge rises over
-  /// the content, the rest nests into the notch.
-  static const double _badgeRadius = 24;
+  /// Disc radius and its centre relative to the bar's top edge
+  /// (negative = above it): two thirds of the disc rises over the content,
+  /// the rest nests into the notch.
+  static const double _badgeRadius = _kBadgeDiameter / 2;
   static const double _badgeCenterY = -8;
 
-  /// Clear space between the badge and the notch's lip, so a thin ring of
-  /// background always outlines the badge against the bar.
-  static const double _notchGap = 5;
+  /// Hairline between the disc's halo and the notch's lip, so the two never
+  /// merge at fractional pixel sizes.
+  static const double _notchGap = 1;
 
   @override
   Widget build(BuildContext context) {
@@ -70,7 +88,7 @@ class _FloatingNavBarState extends State<FloatingNavBar> {
         ),
         child: LayoutBuilder(
           builder: (context, constraints) {
-            // Slot centres: the same split the Row below uses, so the badge
+            // Slot centres: the same split the Row below uses, so the disc
             // lands exactly on top of its item's column.
             final slotWidth = constraints.maxWidth / items.length;
             final targetX = slotWidth * (widget.selectedIndex + 0.5);
@@ -95,7 +113,8 @@ class _FloatingNavBarState extends State<FloatingNavBar> {
                         painter: _NavBarShapePainter(
                           notchCenterX: badgeX,
                           notchCenterY: _badgeCenterY,
-                          notchRadius: _badgeRadius + _notchGap,
+                          notchRadius:
+                              _badgeRadius + _kHaloWidth + _notchGap,
                         ),
                         child: Row(
                           children: [
@@ -114,8 +133,7 @@ class _FloatingNavBarState extends State<FloatingNavBar> {
                     ),
                     Positioned(
                       left: badgeX - _badgeRadius,
-                      bottom:
-                          _barHeight - (_badgeCenterY + _badgeRadius),
+                      bottom: _barHeight - (_badgeCenterY + _badgeRadius),
                       child: TweenAnimationBuilder<double>(
                         // Keyed so every selection change replays the pop.
                         key: ValueKey<int>(widget.selectedIndex),
@@ -126,6 +144,8 @@ class _FloatingNavBarState extends State<FloatingNavBar> {
                             Transform.scale(scale: scale, child: child),
                         child: _ActiveBadge(
                           icon: items[widget.selectedIndex].selectedIcon,
+                          badgeCount:
+                              items[widget.selectedIndex].badgeCount,
                         ),
                       ),
                     ),
@@ -140,35 +160,86 @@ class _FloatingNavBarState extends State<FloatingNavBar> {
   }
 }
 
-/// The raised circle holding the active tab's icon.
+/// The raised disc holding the active tab's icon: the bar's own surface,
+/// outlined by a cream halo so it separates from the notch, with the glyph in
+/// brand navy and a soft shadow lifting it off the content behind the bar.
 class _ActiveBadge extends StatelessWidget {
-  const _ActiveBadge({required this.icon});
+  const _ActiveBadge({required this.icon, this.badgeCount = 0});
 
   final IconData icon;
+  final int badgeCount;
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      width: 48,
-      height: 48,
-      decoration: BoxDecoration(
-        color: AppColors.primary,
-        shape: BoxShape.circle,
-        boxShadow: [
-          BoxShadow(
-            color: AppColors.primary.withValues(alpha: 0.28),
-            blurRadius: 14,
-            offset: const Offset(0, 5),
+    return Stack(
+      clipBehavior: Clip.none,
+      children: [
+        Container(
+          width: _kBadgeDiameter,
+          height: _kBadgeDiameter,
+          decoration: const BoxDecoration(
+            color: AppColors.background,
+            shape: BoxShape.circle,
+            boxShadow: [
+              BoxShadow(
+                color: AppColors.shadowTintStrong,
+                blurRadius: 14,
+                offset: Offset(0, 5),
+              ),
+            ],
           ),
-        ],
-      ),
-      child: Icon(icon, size: 24, color: AppColors.textOnPrimary),
+          // Inset by the halo width: the cream ring separates the white disc
+          // from the bar's white surface.
+          padding: const EdgeInsets.all(_kHaloWidth),
+          child: DecoratedBox(
+            decoration: const BoxDecoration(
+              color: AppColors.surface,
+              shape: BoxShape.circle,
+            ),
+            child: Icon(icon, size: 24, color: AppColors.primary),
+          ),
+        ),
+        if (badgeCount > 0)
+          Positioned(
+            right: -4,
+            top: -2,
+            child: _NavBadge(count: badgeCount, ringColor: AppColors.surface),
+          ),
+      ],
     );
   }
 }
 
-/// The bar's surface: a pill with a circular notch punched out wherever
-/// the badge currently sits. Paints fill, hairline border and the
+/// Unread counter drawn over a nav icon (or the active disc).
+class _NavBadge extends StatelessWidget {
+  const _NavBadge({required this.count, required this.ringColor});
+
+  final int count;
+
+  /// Colour of the gap that separates the badge from what it sits on.
+  final Color ringColor;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+      constraints: const BoxConstraints(minWidth: 17),
+      decoration: BoxDecoration(
+        color: AppColors.accent,
+        borderRadius: BorderRadius.circular(AppSpacing.radiusPill),
+        border: Border.all(color: ringColor, width: 1.5),
+      ),
+      child: Text(
+        count > 9 ? '9+' : '$count',
+        textAlign: TextAlign.center,
+        style: AppTypography.micro.copyWith(color: AppColors.textOnAccent),
+      ),
+    );
+  }
+}
+
+/// The bar's surface: a rounded panel with a circular notch punched out
+/// wherever the disc currently sits. Paints fill, hairline border and the
 /// navy-tinted shadow as one shape so the notch never shows a seam.
 class _NavBarShapePainter extends CustomPainter {
   const _NavBarShapePainter({
@@ -187,7 +258,7 @@ class _NavBarShapePainter extends CustomPainter {
       ..addRRect(
         RRect.fromRectAndRadius(
           Offset.zero & size,
-          const Radius.circular(AppSpacing.radiusPill),
+          const Radius.circular(_kBarRadius),
         ),
       )
       ..addOval(
@@ -205,7 +276,7 @@ class _NavBarShapePainter extends CustomPainter {
     canvas.drawPath(
       path,
       Paint()
-        ..color = const Color(0x2E213448)
+        ..color = AppColors.shadowTintStrong
         ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 10),
     );
     canvas.restore();
@@ -252,25 +323,38 @@ class _NavItem extends StatelessWidget {
         color: Colors.transparent,
         child: InkWell(
           onTap: onTap,
-          borderRadius: BorderRadius.circular(AppSpacing.radiusPill),
+          borderRadius: BorderRadius.circular(_kBarRadius),
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              // The active icon lives in the raised badge; keeping an
+              // The active icon lives in the raised disc; keeping an
               // empty box of the same height means every label stays on
               // one baseline whichever tab is selected.
               SizedBox(
                 height: 29,
                 child: selected
                     ? null
-                    : Icon(item.icon, size: 23, color: AppColors.textTertiary),
+                    : Stack(
+                        clipBehavior: Clip.none,
+                        children: [
+                          Icon(item.icon,
+                              size: 23, color: AppColors.textTertiary),
+                          if (item.badgeCount > 0)
+                            Positioned(
+                              right: -9,
+                              top: -5,
+                              child: _NavBadge(
+                                count: item.badgeCount,
+                                ringColor: AppColors.surface,
+                              ),
+                            ),
+                        ],
+                      ),
               ),
               const SizedBox(height: 2),
               AnimatedDefaultTextStyle(
                 duration: const Duration(milliseconds: 250),
-                style: AppTypography.caption.copyWith(
-                  fontSize: 11,
-                  letterSpacing: 0.1,
+                style: AppTypography.badge.copyWith(
                   color: selected
                       ? AppColors.primary
                       : AppColors.textTertiary,

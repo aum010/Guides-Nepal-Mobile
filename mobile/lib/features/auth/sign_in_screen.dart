@@ -65,8 +65,7 @@ class _SignInScreenState extends ConsumerState<SignInScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  const Icon(Icons.terrain_rounded,
-                      size: 56, color: AppColors.secondary),
+                  const Center(child: AppLogoMark(size: 68)),
                   const SizedBox(height: AppSpacing.x4),
                   Text(
                     'Welcome back',
@@ -134,6 +133,17 @@ class _SignInScreenState extends ConsumerState<SignInScreen> {
                     onPressed: _submit,
                   ),
                   const SizedBox(height: AppSpacing.x4),
+                  // The reset request posts to /auth/forgot-password; the
+                  // backend emails the link itself.
+                  TextButton(
+                    onPressed:
+                        _submitting ? null : () => context.push('/forgot-password'),
+                    child: Text(
+                      AppStrings.forgotPassword,
+                      style: AppTypography.label
+                          .copyWith(color: AppColors.secondary),
+                    ),
+                  ),
                   TextButton(
                     onPressed:
                         _submitting ? null : () => context.push('/sign-up'),

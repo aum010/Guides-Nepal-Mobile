@@ -17,6 +17,10 @@ void main() {
     status: AuthStatus.authenticated,
     user: AppUser(id: 2, email: 'guide@example.com', role: 'guide'),
   );
+  const host = AuthState(
+    status: AuthStatus.authenticated,
+    user: AppUser(id: 3, email: 'host@example.com', role: 'host'),
+  );
 
   group('session restoring', () {
     test('holds on splash when already there', () {
@@ -37,7 +41,12 @@ void main() {
     });
 
     test('onboarding and auth screens are allowed', () {
-      for (final location in ['/onboarding', '/sign-in', '/sign-up']) {
+      for (final location in [
+        '/onboarding',
+        '/sign-in',
+        '/sign-up',
+        '/forgot-password',
+      ]) {
         expect(authRedirect(signedOut, location), isNull,
             reason: 'from $location');
       }
@@ -58,6 +67,7 @@ void main() {
         '/inbox',
         '/profile',
         '/saved',
+        '/profile/edit',
         '/ai',
         '/guide',
         '/guide/profile',
@@ -89,6 +99,7 @@ void main() {
         '/trips',
         '/inbox',
         '/profile',
+        '/profile/edit',
         '/saved',
         '/ai',
         '/faq',
@@ -143,6 +154,49 @@ void main() {
 
     test('guide can post updates', () {
       expect(authRedirect(guide, '/guide/status/new'), isNull);
+    });
+  });
+
+  group('host workspace guard', () {
+    test('host can reach the workspace and both editors', () {
+      for (final location in [
+        '/host',
+        '/host/experience/new',
+        '/host/experience/12',
+        '/host/tour/new',
+        '/host/tour/4',
+      ]) {
+        expect(authRedirect(host, location), isNull, reason: 'from $location');
+      }
+    });
+
+    test('travelers are bounced out', () {
+      expect(authRedirect(traveler, '/host'), '/home');
+      expect(authRedirect(traveler, '/host/experience/new'), '/home');
+    });
+
+    test('guides are bounced out too — the roles are not interchangeable', () {
+      expect(authRedirect(guide, '/host'), '/home');
+      expect(authRedirect(guide, '/host/tour/new'), '/home');
+    });
+
+    test('a host cannot reach the guide workspace', () {
+      expect(authRedirect(host, '/guide'), '/home');
+      expect(authRedirect(host, '/guide/listing/new'), '/home');
+    });
+  });
+
+  group('password settings', () {
+    test('signed-out visitors cannot open the change-password screen', () {
+      expect(authRedirect(signedOut, '/settings/password'), '/sign-in');
+    });
+
+    test('signed-in users can', () {
+      expect(authRedirect(traveler, '/settings/password'), isNull);
+    });
+
+    test('the reset request is a signed-out screen, so it bounces home', () {
+      expect(authRedirect(traveler, '/forgot-password'), '/home');
     });
   });
 }

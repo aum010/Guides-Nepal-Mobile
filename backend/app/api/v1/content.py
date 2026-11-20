@@ -7,8 +7,12 @@ import json
 import os
 import re
 import io
+import logging
 from uuid import uuid4
-from typing import Optional
+from typing import Any, Optional, TypeVar
+from urllib.parse import urlparse
+
+logger = logging.getLogger(__name__)
 
 # Optional server-side image compression (Pillow). If Pillow is not
 # installed the upload still works — images are just stored as-is.
@@ -19,13 +23,12 @@ try:
     _HAS_PILLOW = True
 except ImportError:
     _HAS_PILLOW = False
-from urllib.parse import urlparse
 
 router = APIRouter()
 
 CMS_MANAGER_OR_ADMIN = require_role("admin", "content-manager")
 
-DB: dict[str, list] = {
+DB: dict[str, list[dict[str, Any]]] = {
     "pages": [
         {
             "id": 1,
@@ -307,22 +310,25 @@ DB: dict[str, list] = {
 NEXT_ID = 1000
 
 
-def _clone(obj):
+T = TypeVar("T")
+
+
+def _clone(obj: T) -> T:
     return copy.deepcopy(obj)
 
 
-def _find(key: str, item_id: int):
+def _find(key: str, item_id: int) -> dict[str, Any]:
     for item in DB[key]:
         if item.get("id") == item_id:
             return item
     raise HTTPException(status_code=404, detail=f"{key[:-1]} not found")
 
 
-def _crud_routes(key: str, tag: str, auth_dep=None):
+def _crud_routes(key: str, tag: str, auth_dep: Any = None) -> None:
     if auth_dep:
 
         @router.get(f"/{key}")
-        def list_items(current_user: User = Depends(auth_dep)):
+        def list_items(current_user: User = Depends(auth_dep)) -> list[dict[str, Any]]:
             items = _clone(DB[key])
             if key == "pages":
                 for it in items:
@@ -330,7 +336,9 @@ def _crud_routes(key: str, tag: str, auth_dep=None):
             return items
 
         @router.post(f"/{key}")
-        def create_item(payload: dict, current_user: User = Depends(auth_dep)):
+        def create_item(
+            payload: dict, current_user: User = Depends(auth_dep)
+        ) -> dict[str, Any]:
             global NEXT_ID
             item = {**payload, "id": NEXT_ID}
             NEXT_ID += 1
@@ -340,13 +348,15 @@ def _crud_routes(key: str, tag: str, auth_dep=None):
         @router.patch(f"/{key}/{{item_id}}")
         def update_item(
             item_id: int, payload: dict, current_user: User = Depends(auth_dep)
-        ):
+        ) -> dict[str, Any]:
             item = _find(key, item_id)
             item.update(payload)
             return _clone(item)
 
         @router.delete(f"/{key}/{{item_id}}")
-        def delete_item(item_id: int, current_user: User = Depends(auth_dep)):
+        def delete_item(
+            item_id: int, current_user: User = Depends(auth_dep)
+        ) -> dict[str, str]:
             item = _find(key, item_id)
             DB[key].remove(item)
             return {"status": "ok", "message": "Deleted"}
@@ -354,7 +364,7 @@ def _crud_routes(key: str, tag: str, auth_dep=None):
     else:
 
         @router.get(f"/{key}")
-        def list_items():
+        def list_items_anon() -> list[dict[str, Any]]:
             items = _clone(DB[key])
             if key == "pages":
                 for it in items:
@@ -362,7 +372,7 @@ def _crud_routes(key: str, tag: str, auth_dep=None):
             return items
 
         @router.post(f"/{key}")
-        def create_item(payload: dict):
+        def create_item_anon(payload: dict) -> dict[str, Any]:
             global NEXT_ID
             item = {**payload, "id": NEXT_ID}
             NEXT_ID += 1
@@ -370,13 +380,13 @@ def _crud_routes(key: str, tag: str, auth_dep=None):
             return _clone(item)
 
         @router.patch(f"/{key}/{{item_id}}")
-        def update_item(item_id: int, payload: dict):
+        def update_item_anon(item_id: int, payload: dict) -> dict[str, Any]:
             item = _find(key, item_id)
             item.update(payload)
             return _clone(item)
 
         @router.delete(f"/{key}/{{item_id}}")
-        def delete_item(item_id: int):
+        def delete_item_anon(item_id: int) -> dict[str, str]:
             item = _find(key, item_id)
             DB[key].remove(item)
             return {"status": "ok", "message": "Deleted"}
@@ -419,7 +429,9 @@ def _load_registry() -> dict:
             if isinstance(reg, dict) and "items" in reg and "placements" in reg:
                 return reg
     except Exception:
-        pass
+        logger.debug(
+            "Media registry missing or unreadable; using defaults", exc_info=True
+        )
     return {"items": [], "placements": {}}
 
 
@@ -458,7 +470,7 @@ def _compress_image(content: bytes, content_type: str) -> tuple[bytes, str]:
         return content, ""
 
     try:
-        img = Image.open(io.BytesIO(content))
+        img: Image.Image = Image.open(io.BytesIO(content))
         img = ImageOps.exif_transpose(img)  # Respect EXIF orientation
         original_format = img.format
     except Exception:
@@ -474,7 +486,7 @@ def _compress_image(content: bytes, content_type: str) -> tuple[bytes, str]:
     if longest > _MAX_DIMENSION:
         scale = _MAX_DIMENSION / longest
         new_w, new_h = int(w * scale), int(h * scale)
-        img = img.resize((new_w, new_h), Image.LANCZOS)
+        img = img.resize((new_w, new_h), Image.Resampling.LANCZOS)
 
     # Convert to RGB if necessary (JPEG doesn't support alpha)
     if img.mode in ("RGBA", "LA", "P"):
@@ -505,7 +517,9 @@ def _compress_image(content: bytes, content_type: str) -> tuple[bytes, str]:
 
 
 @router.get("/media")
-def list_media(request: Request, current_user: User = Depends(CMS_MANAGER_OR_ADMIN)):
+def list_media(
+    request: Request, current_user: User = Depends(CMS_MANAGER_OR_ADMIN)
+) -> list[dict[str, Any]]:
     reg = _load_registry()
     items = []
     for it in reg["items"]:
@@ -529,7 +543,7 @@ async def upload_media(
     file: UploadFile = File(...),
     replace_id: int | None = None,
     current_user: User = Depends(CMS_MANAGER_OR_ADMIN),
-):
+) -> dict[str, Any]:
     """Upload an image to the media library. Images are automatically
     compressed (downscaled to 1920px, JPEG q85) to reduce storage and
     bandwidth without visible quality loss. With ``replace_id`` the given
@@ -583,7 +597,7 @@ async def upload_media_from_url(
     request: Request,
     payload: dict,
     current_user: User = Depends(CMS_MANAGER_OR_ADMIN),
-):
+) -> dict[str, Any]:
     """Download an image from a URL and add it to the media library.
     The image is fetched, compressed, and stored like a regular upload."""
     url = (payload.get("url") or "").strip()
@@ -597,14 +611,17 @@ async def upload_media_from_url(
 
     # Download the image (with timeout and size limit)
     try:
-        import urllib.request
+        import httpx
 
-        req = urllib.request.Request(
-            url, headers={"User-Agent": "GuidesNepal-MediaBot/1.0"}
+        resp = httpx.get(
+            url,
+            headers={"User-Agent": "GuidesNepal-MediaBot/1.0"},
+            timeout=15,
+            follow_redirects=True,
         )
-        with urllib.request.urlopen(req, timeout=15) as resp:
-            content_type = resp.headers.get("Content-Type", "")
-            content = resp.read()
+        resp.raise_for_status()
+        content_type = resp.headers.get("Content-Type", "")
+        content = resp.content
     except Exception as e:
         raise HTTPException(status_code=400, detail=f"Could not download image: {e}")
 
@@ -651,18 +668,20 @@ async def upload_media_from_url(
 @router.patch("/media/{item_id}")
 def update_media(
     item_id: int, payload: dict, current_user: User = Depends(CMS_MANAGER_OR_ADMIN)
-):
+) -> dict[str, Any]:
     reg = _load_registry()
     for it in reg["items"]:
         if it["id"] == item_id:
             it.update({k: v for k, v in payload.items() if k in ("original_name",)})
             _save_registry(reg)
-            return it
+            return dict(it)
     raise HTTPException(status_code=404, detail="Media item not found")
 
 
 @router.delete("/media/{item_id}")
-def delete_media(item_id: int, current_user: User = Depends(CMS_MANAGER_OR_ADMIN)):
+def delete_media(
+    item_id: int, current_user: User = Depends(CMS_MANAGER_OR_ADMIN)
+) -> dict[str, str]:
     reg = _load_registry()
     item = next((i for i in reg["items"] if i["id"] == item_id), None)
     if item is None:
@@ -682,7 +701,7 @@ def delete_media(item_id: int, current_user: User = Depends(CMS_MANAGER_OR_ADMIN
 
 
 @router.get("/placements")
-def get_placements(request: Request):
+def get_placements(request: Request) -> dict[str, Any]:
     """Public: which uploaded image is placed where on the frontend."""
     reg = _load_registry()
     placements = {}
@@ -696,7 +715,7 @@ def get_placements(request: Request):
 @router.put("/placements/{key}")
 def set_placement(
     key: str, payload: dict, current_user: User = Depends(CMS_MANAGER_OR_ADMIN)
-):
+) -> dict[str, Any]:
     if key not in _PLACEMENT_KEYS:
         raise HTTPException(status_code=404, detail="Unknown placement slot")
     media_id = payload.get("media_id")
@@ -709,7 +728,9 @@ def set_placement(
 
 
 @router.delete("/placements/{key}")
-def clear_placement(key: str, current_user: User = Depends(CMS_MANAGER_OR_ADMIN)):
+def clear_placement(
+    key: str, current_user: User = Depends(CMS_MANAGER_OR_ADMIN)
+) -> dict[str, str]:
     reg = _load_registry()
     reg["placements"].pop(key, None)
     _save_registry(reg)
@@ -802,7 +823,7 @@ _crud_routes("media", "media", CMS_MANAGER_OR_ADMIN)
 
 
 @router.get("/seo")
-def list_seo_public():
+def list_seo_public() -> list[dict[str, Any]]:
     """Public read of SEO entries so anonymous site visitors can render pages.
 
     Writes stay restricted to admins and content managers via the CRUD routes
@@ -813,7 +834,7 @@ def list_seo_public():
 
 _crud_routes("seo", "seo", CMS_MANAGER_OR_ADMIN)
 # --- Page Sections (Live Editor) ---
-SECTION_OVERRIDES: dict[str, list] = {}
+SECTION_OVERRIDES: dict[str, list[dict[str, Any]]] = {}
 NEXT_SECTION_ID = 100
 
 DEFAULT_SECTIONS = {
@@ -1115,11 +1136,11 @@ for _slug in _FRONTEND_PAGE_TITLES:
         DEFAULT_SECTIONS[_slug] = _default_template(_slug)
 
 
-def _get_sections(slug: str):
+def _get_sections(slug: str) -> list[dict[str, Any]]:
     return _clone(SECTION_OVERRIDES.get(slug, DEFAULT_SECTIONS.get(slug, [])))
 
 
-def _upsert_section(slug: str, section: dict):
+def _upsert_section(slug: str, section: dict) -> dict[str, Any]:
     global NEXT_SECTION_ID
     if slug not in SECTION_OVERRIDES:
         SECTION_OVERRIDES[slug] = _clone(DEFAULT_SECTIONS.get(slug, []))

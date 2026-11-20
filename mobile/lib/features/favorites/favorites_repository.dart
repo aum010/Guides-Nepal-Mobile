@@ -6,9 +6,9 @@ import '../auth/auth_repository.dart';
 
 /// Server-persisted favorites via `/profile/bookmarks`.
 ///
-/// Contract note (see `docs/api-gaps.md`): bookmarks store a free-form
-/// `{title, city, image, link}` tuple — there is no experience-id field.
-/// We store the experience slug in `link` and match on it for de-dupe.
+/// Bookmarks store the catalogue row's id (`experience_id`) so a save resolves
+/// without parsing `link`. The slug is still written to `link`, keeping rows
+/// compatible with older bookmarks and the web app.
 class FavoritesRepository {
   FavoritesRepository(this._client);
 
@@ -25,12 +25,14 @@ class FavoritesRepository {
   Future<Bookmark> addBookmark({
     required String title,
     required String slug,
+    int? experienceId,
     String? city,
     String? image,
   }) async {
     final res = await _client.post('/profile/bookmarks', data: {
       'title': title,
       'link': slug,
+      if (experienceId != null) 'experience_id': experienceId,
       if (city != null) 'city': city,
       if (image != null) 'image': image,
     });

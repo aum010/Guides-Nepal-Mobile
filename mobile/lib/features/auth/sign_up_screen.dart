@@ -77,8 +77,7 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  const Icon(Icons.terrain_rounded,
-                      size: 56, color: AppColors.secondary),
+                  const Center(child: AppLogoMark(size: 68)),
                   const SizedBox(height: AppSpacing.x4),
                   Text(
                     'Create your account',

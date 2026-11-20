@@ -46,6 +46,7 @@ class AppUser {
   }
 
   bool get isGuide => role == 'guide';
+  bool get isHost => role == 'host';
   bool get isTraveler => role == 'traveler';
 
   /// Token payload / `GET /profile/me` tolerant parser.

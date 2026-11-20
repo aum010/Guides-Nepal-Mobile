@@ -93,14 +93,23 @@ class ExperienceCard extends StatelessWidget {
                       width: width ?? double.infinity,
                       height: imageHeight ?? (compact ? 110 : 164),
                     ),
+                    // The ribbon sits at the bottom-left of the photo, the one
+                    // corner the save control never occupies. Pinning it top-
+                    // left collided with the heart on a two-up grid cell and
+                    // squeezed "Guest favourite" down to "Guest favou…"; one
+                    // consistent corner needs neither compromise.
                     if (isGuestFavourite && !compact)
                       Positioned(
-                        top: AppSpacing.x2,
                         left: AppSpacing.x2,
-                        child: _GuestFavouriteBadge(
-                          semanticsLabel:
-                              'Guest favourite, rated ${rating.toStringAsFixed(1)} '
-                              'from ${Formatters.reviewCount(reviews)}',
+                        right: AppSpacing.x2,
+                        bottom: AppSpacing.x2,
+                        child: Align(
+                          alignment: Alignment.centerLeft,
+                          child: _GuestFavouriteBadge(
+                            semanticsLabel:
+                                'Guest favourite, rated ${rating.toStringAsFixed(1)} '
+                                'from ${Formatters.reviewCount(reviews)}',
+                          ),
                         ),
                       ),
                     if (onToggleSave != null)
@@ -113,9 +122,9 @@ class ExperienceCard extends StatelessWidget {
                               ? 'Remove ${experience.title} from saved'
                               : 'Save ${experience.title}',
                           child: Material(
-                            color: Colors.white.withValues(alpha: 0.92),
+                            color: AppColors.onImageSurface,
                             shape: const CircleBorder(),
-                            shadowColor: Colors.black.withValues(alpha: 0.18),
+                            shadowColor: AppColors.onImageShadow,
                             elevation: 2,
                             child: InkWell(
                               customBorder: const CircleBorder(),
@@ -174,7 +183,7 @@ class ExperienceCard extends StatelessWidget {
                                     CrossAxisAlignment.center,
                                 children: [
                                   const Icon(Icons.star_rounded,
-                                      size: 17, color: AppColors.accent),
+                                      size: 17, color: AppColors.iconRating),
                                   const SizedBox(width: 3),
                                   Text(
                                     rating.toStringAsFixed(1),
@@ -205,7 +214,7 @@ class ExperienceCard extends StatelessWidget {
                           const SizedBox(width: AppSpacing.x1),
                           Text(
                             Formatters.pricePerPerson(experience.price!),
-                            style: AppTypography.price.copyWith(fontSize: 15),
+                            style: AppTypography.priceSmall,
                           ),
                         ],
                       ],
@@ -233,26 +242,29 @@ class _GuestFavouriteBadge extends StatelessWidget {
       excludeSemantics: true,
       child: Container(
         padding: const EdgeInsets.symmetric(
-          horizontal: AppSpacing.x2 + 2,
+          horizontal: AppSpacing.x2,
           vertical: 5,
         ),
         decoration: BoxDecoration(
-          color: Colors.white.withValues(alpha: 0.94),
+          color: AppColors.onImageSurface,
           borderRadius: BorderRadius.circular(AppSpacing.radiusPill),
           boxShadow: AppShadows.card,
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.favorite_rounded,
-                size: 12, color: AppColors.favoriteActive),
+            const Icon(Icons.favorite_rounded,
+                size: 11, color: AppColors.favoriteActive),
             const SizedBox(width: 4),
-            Text(
-              'Guest favourite',
-              style: AppTypography.caption.copyWith(
-                color: AppColors.primary,
-                fontWeight: FontWeight.w600,
-                letterSpacing: 0.1,
+            Flexible(
+              child: Text(
+                'Guest favourite',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: AppTypography.badge.copyWith(
+                  color: AppColors.primary,
+                  letterSpacing: 0.1,
+                ),
               ),
             ),
           ],

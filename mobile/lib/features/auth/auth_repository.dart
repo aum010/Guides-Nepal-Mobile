@@ -1,5 +1,6 @@
 import 'dart:convert';
 
+import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/network/api_client.dart';
@@ -23,6 +24,7 @@ class AuthState {
 
   bool get isAuthenticated => status == AuthStatus.authenticated;
   bool get isGuide => user?.isGuide ?? false;
+  bool get isHost => user?.isHost ?? false;
 
   AuthState copyWith({AuthStatus? status, AppUser? user}) => AuthState(
         status: status ?? this.status,
@@ -179,7 +181,13 @@ class AuthRepository {
     return AppUser.fromJson((res.data as Map).cast<String, dynamic>());
   }
 
-  Future<void> updateProfile({
+  /// `PATCH /profile/me`, then the refreshed identity.
+  ///
+  /// The photo key is **`avatar_url`**, not `avatarUrl`: the response object
+  /// spells it camelCase, but `ProfileUpdate` reads snake_case and ignores
+  /// unknown keys, so sending the response spelling silently dropped a photo
+  /// while the request still returned 200.
+  Future<AppUser> updateProfile({
     String? firstName,
     String? lastName,
     String? phone,
@@ -191,8 +199,54 @@ class AuthRepository {
       if (lastName != null) 'lastName': lastName,
       if (phone != null) 'phone': phone,
       if (bio != null) 'bio': bio,
-      if (avatarUrl != null) 'avatarUrl': avatarUrl,
+      if (avatarUrl != null) 'avatar_url': avatarUrl,
     });
+    return fetchProfile();
+  }
+
+  /// `POST /profile/photos/upload` → `{url: "/uploads/…"}`.
+  ///
+  /// The server stores the bytes and returns a *relative* path; every widget
+  /// that shows it resolves the path through `AppConfig.resolveMedia`.
+  Future<String> uploadAvatar({
+    required List<int> bytes,
+    required String filename,
+    required String contentType,
+  }) async {
+    final form = FormData.fromMap({
+      'file': MultipartFile.fromBytes(
+        bytes,
+        filename: filename,
+        contentType: DioMediaType.parse(contentType),
+      ),
+    });
+    final res = await _client.post('/profile/photos/upload', data: form);
+    final url = ((res.data as Map?)?['url'] as String?)?.trim() ?? '';
+    if (url.isEmpty) {
+      throw ApiException(
+        kind: ApiFailureKind.server,
+        message: 'That photo could not be saved. Try another one.',
+      );
+    }
+    return url;
+  }
+
+  /// `POST /auth/forgot-password`.
+  ///
+  /// The backend deliberately answers with the same generic message whether or
+  /// not the address is registered (no user enumeration), and sends the reset
+  /// email itself. The message is returned verbatim for the UI to show; the app
+  /// never claims an email was delivered when the server has not said so.
+  ///
+  /// Known limitation: on a deployment without the Supabase mail configuration
+  /// the endpoint still answers 200 and simply logs that it could not send, so
+  /// the screen also points at support.
+  Future<String> requestPasswordReset(String email) async {
+    final res = await _client.post(
+      '/auth/forgot-password',
+      data: {'email': email},
+    );
+    return ((res.data as Map?)?['message'] as String?)?.trim() ?? '';
   }
 
   Future<void> changePassword({
@@ -261,6 +315,39 @@ class AuthController extends Notifier<AuthState> {
     await ref.read(authRepositoryProvider).logoutEverywhere();
     state = const AuthState(status: AuthStatus.signedOut);
   }
+
+  /// `PATCH /profile/me` — saves the edit and puts the server's refreshed
+  /// identity into the session, so every screen showing the name updates
+  /// without its own refetch.
+  Future<void> updateProfile({
+    String? firstName,
+    String? lastName,
+    String? phone,
+    String? bio,
+    String? avatarUrl,
+  }) async {
+    final user = await ref.read(authRepositoryProvider).updateProfile(
+          firstName: firstName,
+          lastName: lastName,
+          phone: phone,
+          bio: bio,
+          avatarUrl: avatarUrl,
+        );
+    state = AuthState(status: AuthStatus.authenticated, user: user);
+  }
+
+  /// Uploads a profile photo and returns its stored path (not yet applied —
+  /// the caller saves it with [updateProfile]).
+  Future<String> uploadAvatar({
+    required List<int> bytes,
+    required String filename,
+    required String contentType,
+  }) =>
+      ref.read(authRepositoryProvider).uploadAvatar(
+            bytes: bytes,
+            filename: filename,
+            contentType: contentType,
+          );
 
   /// Refresh the in-memory user after a profile edit.
   Future<void> refreshProfile() async {

@@ -15,5 +15,7 @@ from .host_guide import HostGuide as HostGuide
 from .host_guide import HostExperienceGuide as HostExperienceGuide
 from .support_ticket import SupportTicket as SupportTicket
 from .token_revocation import RevokedToken as RevokedToken
+from .conversation import Conversation as Conversation
+from .conversation import Message as Message
 from .experience_workflow import ExperienceProposal as ExperienceProposal
 from .experience_workflow import ExperienceChangeRequest as ExperienceChangeRequest

@@ -409,18 +409,14 @@ class HomeShell extends ConsumerWidget {
                     padding: const EdgeInsets.symmetric(
                         horizontal: AppSpacing.x2 + 4, vertical: 5),
                     decoration: BoxDecoration(
-                      color: Colors.white.withValues(alpha: 0.16),
+                      color: AppColors.onImageFill,
                       borderRadius:
                           BorderRadius.circular(AppSpacing.radiusPill),
                     ),
                     child: Text(
                       'LOCAL GUIDES · NEPAL',
-                      style: AppTypography.caption.copyWith(
-                        color: Colors.white.withValues(alpha: 0.92),
-                        fontSize: 10,
-                        letterSpacing: 1.4,
-                        fontWeight: FontWeight.w700,
-                      ),
+                      style: AppTypography.eyebrow
+                          .copyWith(color: AppColors.onImageTextSecondary),
                     ),
                   ),
                   const SizedBox(height: AppSpacing.x3),
@@ -432,9 +428,8 @@ class HomeShell extends ConsumerWidget {
                   const SizedBox(height: AppSpacing.x2),
                   Text(
                     AppStrings.heroSubline,
-                    style: AppTypography.small.copyWith(
-                        color: AppColors.textOnPrimary
-                            .withValues(alpha: 0.85)),
+                    style: AppTypography.small
+                        .copyWith(color: AppColors.onImageTextSecondary),
                   ),
                   const SizedBox(height: AppSpacing.x5),
                   AppButton(
@@ -450,7 +445,7 @@ class HomeShell extends ConsumerWidget {
               right: -30,
               child: _HeroOrbit(
                 size: 150,
-                color: Colors.white.withValues(alpha: 0.07),
+                color: AppColors.ornamentFill,
               ),
             ),
             Positioned(
@@ -533,7 +528,7 @@ class HomeShell extends ConsumerWidget {
                       width: 38,
                       height: 38,
                       decoration: BoxDecoration(
-                        color: Colors.white.withValues(alpha: 0.22),
+                        color: AppColors.onImageFillStrong,
                         shape: BoxShape.circle,
                       ),
                       child: Icon(dest.icon,
@@ -551,10 +546,8 @@ class HomeShell extends ConsumerWidget {
                     const SizedBox(height: 2),
                     Text(
                       dest.tagline,
-                      style: AppTypography.caption.copyWith(
-                        color: Colors.white.withValues(alpha: 0.85),
-                        fontSize: 11,
-                      ),
+                      style: AppTypography.badge
+                          .copyWith(color: AppColors.onImageTextSecondary),
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                     ),
@@ -579,7 +572,7 @@ class HomeShell extends ConsumerWidget {
       experience: e,
       imageHeight: imageHeight,
       onTap: () => context.push('/experience/${e.slug}'),
-      isSaved: favs.isSaved(e.slug),
+      isSaved: favs.isSaved(e.slug, experienceId: e.id),
       onToggleSave: () async {
         final auth = ref.read(authControllerProvider);
         if (!auth.isAuthenticated) {

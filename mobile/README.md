@@ -3,7 +3,8 @@
 **Discover Nepal Through Local Eyes.** A Flutter app (Android + iOS) for
 discovering experiences, guides and destinations across Kathmandu, Pokhara,
 Lalitpur, Bhaktapur and Bharatpur — with booking, trips, server-synced
-favorites and the Maila Dai AI travel assistant.
+favorites, messaging, the Maila Dai AI travel assistant, a guide workspace and
+a separate host workspace for the `host` role.
 
 ## Prerequisites
 
@@ -43,7 +44,7 @@ then `flutter run` on an emulator or device.
 
 ```bash
 flutter analyze   # must report "No issues found"
-flutter test      # 108 tests: parsing, formatters, guards, widget flows
+flutter test      # 230 tests: parsing, formatters, guards, widget flows
 flutter build apk --debug     # Android (verified on this machine)
 flutter build ios --release   # macOS + Xcode only
 ```
@@ -57,12 +58,58 @@ lib/
 ├── core/                   # config, network (Dio + auth interceptor),
 │                           # secure storage, utils
 ├── features/               # feature-first screens + controllers + repos
+│                           # (auth, home, explore, experiences, bookings,
+│                           #  trips, favorites, inbox, ai_assistant, guide_tools,
+│                           #  host_tools, profile, help …)
 ├── l10n/app_strings.dart   # all user-facing copy (Nepali-ready)
 └── shared/                 # models, reusable widgets
-test/                       # unit + widget tests (108)
+test/                       # unit + widget tests (230)
 docs/                       # architecture, design system, API, security,
                             # testing, release docs
 ```
+
+## Branding
+
+The launcher icon, the launch screen and the in-app logo all come from the
+supplied logo package. Icon and splash masters are committed under `brand/`
+(build-time only, not bundled); the two images the UI draws are in
+`assets/brand/`. The rounded plate is the Android icon, a squared no-alpha
+plate is the iOS icon, the full lockup is the launch screen, and the circular
+mark is the in-app logo (`AppLogoMark`).
+
+```bash
+dart run flutter_launcher_icons          # regenerate platform launcher icons
+dart run flutter_native_splash:create    # regenerate the OS splash
+```
+
+Both generators are dev dependencies configured at the bottom of
+`pubspec.yaml`; [docs/design-system.md](docs/design-system.md#brand-artwork)
+explains why the iOS icon has no alpha and why the Android 12 splash logo
+cannot be widened.
+
+## Accounts and workspaces
+
+| Role | What the app gives it |
+|---|---|
+| `traveler` (default signup) | Home · Explore · Trips · Inbox · Profile, booking, favorites, reviews, Maila Dai |
+| `guide` | Everything above plus **Guide tools** (`/guide`): onboarding, listings, capacity, requests, updates |
+| `host` | Everything above plus **Host tools** (`/host`): owned experiences, tours and booking requests |
+
+Host and guide are different server roles and neither workspace opens for the
+other. A host cannot sign in until a regional-head/admin approves the host
+application — the backend enforces that at login, so the app never needs to
+guess. Every `/guide/*` and `/host/*` request is authorized server-side; the
+router guards are convenience only.
+
+## Password reset
+
+`/forgot-password` posts to `POST /auth/forgot-password`, which emails the
+reset link itself (Supabase Admin API) and answers with one generic message.
+The screen shows the server's wording, never claims an address exists, and
+points at support when a deployment has no mail service configured — see
+[docs/api-gaps.md](docs/api-gaps.md#11-password-reset-and-change--implemented-delivery-caveat).
+Signed-in users change their password from Profile → Account (`POST
+/auth/change-password`).
 
 ## Documentation
 

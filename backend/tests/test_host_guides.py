@@ -1,11 +1,15 @@
 """Tests for the Host guide-management workflow (SOP-GN-HOST-001)."""
 
+from fastapi.testclient import TestClient
+
+from sqlalchemy.orm import Session
+
 from app.core.roles import HOST
 from app.core.security import create_access_token, get_password_hash
 from app.models.user import User
 
 
-def _make_host(db_session) -> User:
+def _make_host(db_session: Session) -> User:
     user = User(
         email="host-guides@example.com",
         hashed_password=get_password_hash("HostPass123!"),
@@ -23,7 +27,7 @@ def _bearer(user: User) -> dict:
     return {"Authorization": f"Bearer {create_access_token(user.id)}"}
 
 
-def test_host_guide_workflow(client, db_session):
+def test_host_guide_workflow(client: TestClient, db_session: Session) -> None:
     host = _make_host(db_session)
     headers = _bearer(host)
 
@@ -82,7 +86,9 @@ def test_host_guide_workflow(client, db_session):
     )
     assert assigned.status_code == 201, assigned.text
 
-    rows = client.get(f"/api/v1/host/guides/experiences/{experience_id}/guides", headers=headers)
+    rows = client.get(
+        f"/api/v1/host/guides/experiences/{experience_id}/guides", headers=headers
+    )
     assert rows.status_code == 200
     assert rows.json()[0]["guide"]["name"] == "Ram Bahadur"
 
@@ -101,6 +107,10 @@ def test_host_guide_workflow(client, db_session):
     suspend = client.post(f"/api/v1/host/guides/{guide['id']}/suspend", headers=headers)
     assert suspend.status_code == 200
     feed_after = client.get("/api/v1/experiences")
-    assert not [e for e in feed_after.json() if str(e.get("slug", "")).startswith("host-")]
-    reactivate = client.post(f"/api/v1/host/guides/{guide['id']}/reactivate", headers=headers)
+    assert not [
+        e for e in feed_after.json() if str(e.get("slug", "")).startswith("host-")
+    ]
+    reactivate = client.post(
+        f"/api/v1/host/guides/{guide['id']}/reactivate", headers=headers
+    )
     assert reactivate.status_code == 200

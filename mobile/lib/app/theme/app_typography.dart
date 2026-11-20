@@ -89,9 +89,26 @@ abstract final class AppTypography {
       color: AppColors.secondary,
       letterSpacing: 1.1);
 
+  // Chrome: buttons and the smallest labels. These are roles, not adjectives —
+  // a chip, a status pill and a timestamp each pick one so a stranger never
+  // invents a 10.5px variant of their own.
+  static TextStyle button = _body(size: 16, height: 1.2, weight: 600);
+  static TextStyle badge = _body(size: 11, height: 1.25, weight: 600);
+  static TextStyle micro = _body(size: 10, height: 1.2, weight: 700);
+  static TextStyle eyebrow = _body(
+      size: 10,
+      height: 1.2,
+      weight: 700,
+      color: AppColors.secondary,
+      letterSpacing: 1.4);
+
   // Numeric emphasis (prices, ratings, booking data)
   static TextStyle price =
       _body(size: 17, height: 1.2, weight: 700);
+  static TextStyle priceMd =
+      _body(size: 18, height: 1.2, weight: 700);
+  static TextStyle priceSmall =
+      _body(size: 15, height: 1.2, weight: 700);
   static TextStyle priceLarge =
       _body(size: 26, height: 1.15, weight: 700);
 }

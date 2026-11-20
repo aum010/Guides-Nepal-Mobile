@@ -64,5 +64,15 @@ class ExperienceResponse(ExperienceBase):
     # Host experiences can be led by several guides; catalogue rows omit it.
     guides: List[GuideResponse] = []
 
+    # Present only on a published guide listing. Seeded and host rows leave
+    # them unset rather than inventing a capacity they do not track.
+    listingId: Optional[int] = None
+    area: Optional[str] = None
+    difficulty: Optional[str] = None
+    meetingPoint: Optional[str] = None
+    itinerary: Optional[str] = None
+    maxGuests: Optional[int] = None
+    availableSpots: Optional[int] = None
+
     class Config:
         from_attributes = True

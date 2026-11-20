@@ -13,10 +13,15 @@ Both follow the same lifecycle: ``draft`` → ``submitted`` →
 live ``GuideListing`` without an approval decision recorded on the row
 (`decided_at` / `decided_by_user_id` / `decided_by_role`).
 """
-from sqlalchemy import Column, DateTime, Float, ForeignKey, Integer, String, Text, JSON
-from sqlalchemy.sql import func
-from app.core.database import Base
 
+from datetime import datetime
+from typing import Any
+
+from sqlalchemy import DateTime, Float, ForeignKey, Integer, String, Text, JSON
+from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.sql import func
+
+from app.core.database import Base
 
 # Status lifecycles (shared vocabulary for both workflows).
 STATUS_DRAFT = "draft"
@@ -25,7 +30,7 @@ STATUS_APPROVED = "approved"
 STATUS_CHANGES_REQUESTED = "changes_requested"
 STATUS_REJECTED = "rejected"
 STATUS_PUBLISHED = "published"  # proposals only: approved + listing created
-STATUS_APPLIED = "applied"      # change requests only: approved + listing updated
+STATUS_APPLIED = "applied"  # change requests only: approved + listing updated
 STATUS_CANCELLED = "cancelled"
 
 PROPOSAL_STATUSES = frozenset(
@@ -67,37 +72,57 @@ class ExperienceProposal(Base):
 
     __tablename__ = "experience_proposals"
 
-    id = Column(Integer, primary_key=True, index=True)
-    guide_user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    guide_user_id: Mapped[int] = mapped_column(
+        Integer, ForeignKey("users.id"), nullable=False, index=True
+    )
 
     # Proposed listing content.
-    title = Column(String, nullable=False)
-    category = Column(String, nullable=False, default="tour")  # trekking | tour | specialized
-    city = Column(String, nullable=False, default="Kathmandu")
-    area = Column(String, nullable=True)
-    description = Column(Text, nullable=False, default="")
-    itinerary = Column(Text, nullable=True)
-    meeting_point = Column(String, nullable=True)
-    duration = Column(String, nullable=False, default="1 day")
-    difficulty = Column(String, nullable=False, default="Easy")
-    price = Column(Float, nullable=False, default=0.0)
-    max_guests = Column(Integer, nullable=False, default=10)
+    title: Mapped[str] = mapped_column(String, nullable=False)
+    category: Mapped[str] = mapped_column(
+        String, nullable=False, default="tour"
+    )  # trekking | tour | specialized
+    city: Mapped[str] = mapped_column(String, nullable=False, default="Kathmandu")
+    area: Mapped[str | None] = mapped_column(String, nullable=True)
+    description: Mapped[str] = mapped_column(Text, nullable=False, default="")
+    itinerary: Mapped[str | None] = mapped_column(Text, nullable=True)
+    meeting_point: Mapped[str | None] = mapped_column(String, nullable=True)
+    duration: Mapped[str] = mapped_column(String, nullable=False, default="1 day")
+    difficulty: Mapped[str] = mapped_column(String, nullable=False, default="Easy")
+    price: Mapped[float] = mapped_column(Float, nullable=False, default=0.0)
+    max_guests: Mapped[int] = mapped_column(Integer, nullable=False, default=10)
 
     # Supporting documentation links (EXP-F-001 attachments D2–D6).
-    documents = Column(JSON, nullable=False, default=list)
+    documents: Mapped[Any] = mapped_column(JSON, nullable=False, default=list)
 
     # Workflow state.
-    status = Column(String, nullable=False, default=STATUS_DRAFT, index=True)
-    submitted_at = Column(DateTime(timezone=True), nullable=True)
-    decided_at = Column(DateTime(timezone=True), nullable=True)
-    decided_by_user_id = Column(Integer, nullable=True)
-    decided_by_role = Column(String, nullable=True)  # role held at decision time (audit)
-    decision_notes = Column(Text, nullable=True)
-    published_at = Column(DateTime(timezone=True), nullable=True)
-    listing_id = Column(Integer, nullable=True)  # GuideListing created on publish
+    status: Mapped[str] = mapped_column(
+        String, nullable=False, default=STATUS_DRAFT, index=True
+    )
+    submitted_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    decided_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    decided_by_user_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    decided_by_role: Mapped[str | None] = mapped_column(
+        String, nullable=True
+    )  # role held at decision time (audit)
+    decision_notes: Mapped[str | None] = mapped_column(Text, nullable=True)
+    published_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    listing_id: Mapped[int | None] = mapped_column(
+        Integer, nullable=True
+    )  # listing created on publish
 
-    created_at = Column(DateTime(timezone=True), server_default=func.now())
-    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+    created_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
+    updated_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), onupdate=func.now()
+    )
 
 
 class ExperienceChangeRequest(Base):
@@ -112,23 +137,43 @@ class ExperienceChangeRequest(Base):
 
     __tablename__ = "experience_change_requests"
 
-    id = Column(Integer, primary_key=True, index=True)
-    guide_user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
-    listing_id = Column(Integer, ForeignKey("guide_listings.id"), nullable=False, index=True)
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    guide_user_id: Mapped[int] = mapped_column(
+        Integer, ForeignKey("users.id"), nullable=False, index=True
+    )
+    listing_id: Mapped[int] = mapped_column(
+        Integer, ForeignKey("guide_listings.id"), nullable=False, index=True
+    )
 
-    change_class = Column(String, nullable=False, default=CHANGE_CLASS_MATERIAL)  # material | minor
-    reason = Column(Text, nullable=False, default="")
-    changes = Column(JSON, nullable=False, default=list)
-    documents = Column(JSON, nullable=False, default=list)
+    change_class: Mapped[str] = mapped_column(
+        String, nullable=False, default=CHANGE_CLASS_MATERIAL
+    )  # material | minor
+    reason: Mapped[str] = mapped_column(Text, nullable=False, default="")
+    changes: Mapped[Any] = mapped_column(JSON, nullable=False, default=list)
+    documents: Mapped[Any] = mapped_column(JSON, nullable=False, default=list)
 
     # Workflow state.
-    status = Column(String, nullable=False, default=STATUS_DRAFT, index=True)
-    submitted_at = Column(DateTime(timezone=True), nullable=True)
-    decided_at = Column(DateTime(timezone=True), nullable=True)
-    decided_by_user_id = Column(Integer, nullable=True)
-    decided_by_role = Column(String, nullable=True)  # role held at decision time (audit)
-    decision_notes = Column(Text, nullable=True)
-    applied_at = Column(DateTime(timezone=True), nullable=True)
+    status: Mapped[str] = mapped_column(
+        String, nullable=False, default=STATUS_DRAFT, index=True
+    )
+    submitted_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    decided_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    decided_by_user_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    decided_by_role: Mapped[str | None] = mapped_column(
+        String, nullable=True
+    )  # role held at decision time (audit)
+    decision_notes: Mapped[str | None] = mapped_column(Text, nullable=True)
+    applied_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
 
-    created_at = Column(DateTime(timezone=True), server_default=func.now())
-    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+    created_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
+    updated_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), onupdate=func.now()
+    )

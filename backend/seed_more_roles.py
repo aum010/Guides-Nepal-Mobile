@@ -43,15 +43,17 @@ def main() -> None:
                     existing.region = u["region"]
                 print(f"Updated existing user: {u['email']} ({u['role']})")
             else:
-                db.add(User(
-                    email=u["email"],
-                    firstName=u["firstName"],
-                    lastName=u["lastName"],
-                    hashed_password=get_password_hash(u["password"]),
-                    role=u["role"],
-                    region=u.get("region"),
-                    is_active=True,
-                ))
+                db.add(
+                    User(
+                        email=u["email"],
+                        firstName=u["firstName"],
+                        lastName=u["lastName"],
+                        hashed_password=get_password_hash(u["password"]),
+                        role=u["role"],
+                        region=u.get("region"),
+                        is_active=True,
+                    )
+                )
                 print(f"Created user: {u['email']} ({u['role']})")
         db.commit()
         print("Done.")

@@ -1,4 +1,7 @@
-from sqlalchemy import Column, DateTime, Integer, String
+from datetime import datetime
+
+from sqlalchemy import DateTime, Integer, String
+from sqlalchemy.orm import Mapped, mapped_column
 from sqlalchemy.sql import func
 
 from app.core.database import Base
@@ -15,7 +18,9 @@ class RevokedToken(Base):
 
     __tablename__ = "revoked_tokens"
 
-    id = Column(Integer, primary_key=True, index=True)
-    jti = Column(String, unique=True, index=True, nullable=False)
-    expires_at = Column(DateTime, nullable=False, index=True)
-    revoked_at = Column(DateTime, server_default=func.now())
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    jti: Mapped[str] = mapped_column(String, unique=True, index=True, nullable=False)
+    expires_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, index=True)
+    revoked_at: Mapped[datetime | None] = mapped_column(
+        DateTime, server_default=func.now()
+    )

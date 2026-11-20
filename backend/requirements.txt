@@ -6,18 +6,22 @@ pydantic-settings
 sqlalchemy
 alembic
 psycopg2-binary
+psycopg[binary]
 python-jose[cryptography]
 bcrypt
 python-multipart
 python-dotenv
 Pillow
-black
-ruff
-mypy
-pytest
-pytest-cov
 httpx
-bandit
-safety
+# Quality toolchain is pinned: unpinned black/mypy bumped their default rules
+# silently and produced formatting/typing failures unrelated to any code change.
+# Bump these deliberately (and rerun the gates) rather than on every install.
+black==26.10.1
+ruff==0.17.1
+mypy==2.4.0
+pytest==9.1.1
+pytest-cov==7.1.0
+bandit==1.9.4
+safety==3.8.1
 slowapi
 cryptography

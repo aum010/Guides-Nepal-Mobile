@@ -22,16 +22,22 @@ dependencies:
   intl: any
   shared_preferences: ^2.3.5
   url_launcher: ^6.3.1
+  image_picker: ^1.2.4
 
 dev_dependencies:
   flutter_test:
     sdk: flutter
   flutter_lints: ^5.0.0
+  flutter_launcher_icons: ^0.14.4
+  flutter_native_splash: ^2.4.8
 
 flutter:
   uses-material-design: true
   assets:
-    - assets/images/
+    - assets/brand/
+  # Both families are variable fonts bundled under the SIL Open Font License
+  # (see assets/fonts/OFL-*.txt). Apple's SF Pro is not redistributable, so it
+  # must never be added as an app asset.
   fonts:
     - family: Inter
       fonts:
@@ -39,3 +45,43 @@ flutter:
     - family: PlayfairDisplay
       fonts:
         - asset: assets/fonts/PlayfairDisplay.ttf
+
+# Launcher icon. Generated with:
+#   dart run flutter_launcher_icons
+# Sources live in brand/ — build-time artwork only, deliberately outside
+# assets/ so the icon masters are not bundled into the APK:
+#   app_icon.png          — rounded plate as drawn (Android pre-8 launchers)
+#   app_icon_ios.png      — square navy plate, no alpha (iOS applies its own mask)
+#   app_icon_adaptive.png — full-bleed navy with the mark at 68%, so the petals
+#                           stay inside the safe circle while the layer still
+#                           covers the whole canvas (no transparent margin for
+#                           a launcher plate to show through)
+flutter_launcher_icons:
+  android: "ic_launcher"
+  ios: true
+  image_path_android: brand/app_icon.png
+  image_path_ios: brand/app_icon_ios.png
+  adaptive_icon_background: "#213448"
+  adaptive_icon_foreground: brand/app_icon_adaptive.png
+  # The foreground artwork is already inset to the safe zone by hand (see
+  # above). Letting the tool inset it again would shrink the mark twice.
+  adaptive_icon_foreground_inset: 0
+  remove_alpha_ios: true
+  min_sdk_android: 21
+
+# Launch screen (the OS-level splash, before Flutter draws). Generated with:
+#   dart run flutter_native_splash:create
+# White rather than cream so it flows into SplashScreen, which uses the same
+# surface; "GUIDES" in the lockup is navy, so it needs a light ground.
+flutter_native_splash:
+  color: "#FFFFFF"
+  image: brand/splash_logo.png
+  android: true
+  ios: true
+  web: false
+  android_12:
+    # Android 12+ masks this drawable to a circle. The lockup is therefore
+    # pre-fitted to that circle inside a square canvas — widening it clips the
+    # ends of the wordmark, which is why the wordmark cannot fill the splash.
+    color: "#FFFFFF"
+    image: brand/splash_logo_android12.png

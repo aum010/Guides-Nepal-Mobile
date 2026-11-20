@@ -200,6 +200,27 @@ list and stats re-poll every 30 seconds so new bookings show up live.
    (`availability`, `capacity`, `booking`, `schedule`, `announcement`) and
    message → *Post update*. It appears in the feed immediately.
 
+#### Published listings reach travellers
+
+An **active** listing is a real catalogue row, not a dashboard draft:
+
+| Public surface | What it serves a listing as |
+|---|---|
+| `GET /api/v1/experiences` | `id = 200000 + listing id`, `slug = listing-<slug>`, its guide as host, plus `difficulty`, `meetingPoint`, `itinerary`, `maxGuests`, `availableSpots` |
+| `GET /api/v1/experiences/listing-<slug>` | the detail page (404 once the listing is paused) |
+| `GET /api/v1/guides/{id}` | the guide account's public profile (`300000 + user id`) |
+| `GET /api/v1/updates?city=` | the guide's live updates for that city |
+| `POST /api/v1/guide/listings/{id}/photo` | the guide's cover photo (JPEG/PNG/WebP ≤ 5 MB, stored under `/uploads`, served at the same path) |
+
+`category` is mapped onto the public values the Explore filters use
+(`trekking → Adventure`, `tour → Cultural`, `specialized → Workshop`).
+The slug is generated once at create time and **never changes on rename**, so a
+link a traveller shared keeps working.
+
+A booking on a listing goes to **the guide who owns it** (`guide_user_id`) and
+records `guide_listing_id`; `POST /bookings/` refuses more guests than the
+listing has seats left and gives them back on cancellation or decline.
+
 ### Dashboard Routes by Role
 
 All dashboard routes are served under `/dashboard` (for example the admin overview is at
@@ -692,3 +713,5 @@ This project is licensed under MIT. See the LICENSE file for details.
 
 **Last updated:** 2026-10-08  
 **Version:** 1.3.0
+#   G u i d e s - N e p a l - M o b i l e  
+ 

@@ -25,33 +25,51 @@ unavailable or use a documented workaround.
   401s shares one exchange) and replays the request once with the rotated
   access token. Only a rejected refresh fires `onUnauthorized` and ends the
   session. Tests: `test/auth_interceptor_test.dart` (replay, rejection,
-  missing refresh token, parallel burst, non-auth failures never retried).
+  missing refresh token, parallel burst, non-auth failures never retried).## 2. Traveler ↔ guide messaging — IMPLEMENTED
 
-## 2. Traveler ↔ guide messaging — MISSING (Inbox is honest)
+- **Contract as built:** `GET/POST /api/v1/conversations`,
+  `GET/POST /api/v1/conversations/{id}/messages`, all behind
+  `get_current_user`. Opening is get-or-create on a canonical pair (low
+  user id first; a unique constraint backstops the race). Messaging
+  yourself is 422; unknown or inactive recipients are 404. Membership is
+  enforced with **404 for both missing and non-member** threads, so ids
+  cannot be probed. Fetching a thread sets `read_at` on received
+  messages — that side effect is what drives the list's `unread_count`.
+  Each list row carries a viewer-relative `peer` (camelCase names, as in
+  `GET /profile/me`), `last_message` and `unread_count`. Bodies are
+  trimmed server-side and limited to 1–2000 chars.
+- **Entry point:** `BookingResponse` exposes `guide_user_id` and
+  `guide_name` (the guide account assigned at booking time), so every
+  live trip tile offers **Message guide**, which opens or reuses the
+  thread.
+- **Mobile behavior:** the Inbox tab lists real conversations — peer
+  initials, preview, relative time, brand-yellow unread pill — with
+  pull-to-refresh plus a 15 s poll while mounted; the thread screen
+  polls every 10 s, sends inline, and clears its unread state via the
+  fetch. The Maila Dai card remains as the always-available assistant.
+  No fake threads, no simulated delivery.
+- **Unread badge:** the Inbox tab in the floating nav bar shows the total
+  unread count (capped at `9+`), on the raised badge when Inbox is active.
+  It reads the same `conversationsProvider` as the list, so there is one
+  fetch, and it re-fetches when the traveller switches to the tab.
+- **Deliberately deferred:** SSE/push (polling is ample at current
+  volumes), and guide-side workspace UI (the four routes are role-agnostic
+  and already serve a guide token).
 
-- **Required:** conversation list, thread history, send, unread counts for
-  the Inbox tab.
-- **Existing:** none — no `/conversations` or `/messages` routes anywhere in
-  `backend/app/api/v1/`.
-- **Mobile behavior:** the Inbox tab states "Direct messaging with guides is
-  coming soon" and routes to Maila Dai. No fake threads, no simulated
-  delivery.
-- **Recommended contract:** `GET/POST /conversations`,
-  `GET /conversations/{id}/messages`, `POST …/messages` with
-  `require_auth`, scoped membership checks; polling at 10–15 s or SSE for
-  real-time.
+## 3. Bookmark experience id — IMPLEMENTED
 
-## 3. Bookmarks have no experience id — CONTRACT LIMITATION
-
-- **Existing:** `POST /profile/bookmarks` stores a free-form
-  `{title, city, image, link}` tuple; there is no `experience_id` field.
-- **Workaround (implemented):** the app writes the experience **slug** into
-  `link` and matches on it for de-dupe and "is saved" checks
-  (`FavoritesController.isSaved`). Swipe-to-remove deletes by bookmark id.
-- **Risk:** if the web app writes different `link` values, those bookmarks
-  still display but may not map to a detail route.
-- **Recommendation:** add `experience_id` (nullable int) to the bookmark
-  schema; the mobile model already parses tolerantly and would pick it up.
+- **Contract as built:** `POST /profile/bookmarks` accepts an optional
+  `experience_id` (nullable int) alongside the existing
+  `{title, city, image, link}` tuple, and `GET /profile/bookmarks` returns it.
+  Older rows and bookmarks written by the web app have `null` there.
+- **Mobile behavior:** a save sends the catalogue row's id, and
+  `FavoritesController.isSaved` / `idFor` match on `experienceId` first,
+  falling back to the slug in `link`. A saved experience therefore stays
+  matched even if its slug is later rewritten; pre-existing rows keep working
+  through the fallback. Swipe-to-remove still deletes by bookmark id.
+- **Tests:** `test/favorites_state_test.dart` covers both the id match and the
+  slug fallback; `backend/tests/test_profile_api.py` asserts the field
+  round-trips.
 
 ## 4. Sign-out revocation — IMPLEMENTED (refresh tokens)
 
@@ -96,12 +114,18 @@ unavailable or use a documented workaround.
 
 ## 6. Availability is day-level, not time slots
 
-- **Existing:** `GET /bookings/availability?date=YYYY-MM-DD` →
-  `{available, status: free|booked|reserved}` — one bucket per day.
-- **Mobile behavior:** the booking flow checks the chosen day before
-  proceeding and tells the user to pick another date if unavailable; there is
-  no time-picker because the API has no time-slot data. Availability failures
-  are advisory — the server's `POST /bookings/` validation is authoritative.
+- **Existing:** `GET /bookings/availability?date=YYYY-MM-DD[&experience_id=N]`
+  → `{available, status: free|booked|reserved|full}`, plus `spots_left` when
+  the query names an experience. One bucket per day, and — for a published
+  guide listing — its own remaining seats (`full` means the seats, not the
+  calendar, ran out).
+- **Mobile behavior:** the booking flow sends the experience id with the date
+  so the answer is about *that* guide and *that* trip, not the single fallback
+  catalogue guide. The guest stepper stops at `spots_left`, a sold-out listing
+  disables the booking bar, and a `full` day explains the seats are gone. There
+  is still no time-picker because the API has no time-slot data. Availability
+  failures are advisory — the server's `POST /bookings/` validation is
+  authoritative.
 - **To support time slots:** per-slot availability endpoint + `time` field on
   `BookingCreate`.
 
@@ -145,38 +169,127 @@ and never fakes payment UI or success screens.
   extras, so the app only shows capacity fields for a `capacity` update, the
   date for `schedule`, and validates `booked <= total` client-side (the server
   does not cross-check them). `DELETE` removes the row for good.
-- **Missing backend capability — updates are not public either:** no route
-  outside `/guide/status` returns `GuideStatusUpdate` rows, so an
-  announcement, availability note or schedule change never reaches
-  travellers. The composer says so rather than implying a feed exists.
-  A public `GET /guides/{id}/updates` (active rows, `event_date >= today`)
-  would be the natural shape.
-- **Missing backend capability — the guide profile is not public:**
-  `GET /guides/{id}` is served by `GuideService` from the legacy `guides`
-  table, not from `guide_profiles`, so the onboarding data a guide saves here
-  is currently visible only inside the phone's workspace. Joining
-  `guide_profiles` into `GuideResponse` is what would make it reach
-  travellers.
-- **Missing backend capability — guide listings are not traveller-visible:**
-  `guide_listings` rows are returned by `/guide/listings` only; `/experiences`
-  serves seeded content and `POST /bookings/` books an experience. The repo
-  models an approval flow (`app/models/experience_workflow.py`,
-  `experience_workflow_service.py`) that would turn an approved listing into
-  a live experience, but **no routes exist** for it. Until they do, the app
-  says "Save listing" (not "Publish") and the listings empty state does not
-  promise traveller reach.
-- **Missing backend capability:** earnings/payouts, performance metrics,
-  availability calendars for guides.
-- The app never presents any of the unbuilt pieces as available; a guide
-  sees the dashboard, requests and listings only.
+- **Public updates — IMPLEMENTED:** `GET /updates?city=&limit=` returns the
+  active, current rows (newest first, `booking` notes excluded, city matched
+  through the listing or the guide's profile). "Current" is judged in Nepal
+  time (UTC+05:45), so an update does not linger past its day while the
+  server's clock is still on the previous UTC date. See
+  `backend/app/services/guide_dashboard_service.py`.
+- **Public guide profile — IMPLEMENTED:** `GET /guides` merges the legacy
+  catalogue rows with real guide accounts that finished onboarding, and
+  `GET /guides/{id}` resolves either. Guide accounts use a namespaced id
+  (`300000 + user id`) so they can never shadow a catalogue row; the payload
+  carries the onboarding display name, bio, cities and languages, and a rating
+  pooled from their published trips. `verified` stays `false` — the platform
+  records no verification for guide accounts, so the badge is not implied.
+- **Listings are traveller-visible — IMPLEMENTED:** an active listing is a
+  catalogue row at `GET /experiences` (`id = 200000 + listing id`,
+  `slug = listing-<slug>`) with its guide as host, and at
+  `GET /experiences/listing-<slug>`. `category` is mapped onto the public
+  values the Explore chips filter by (`trekking → Adventure`, `tour →
+  Cultural`, `specialized → Workshop`), and the row carries `difficulty`,
+  `meetingPoint`, `itinerary`, `maxGuests` and `availableSpots`. Pausing a
+  listing removes it (and its detail page) immediately.
+- **Booking reaches the right guide — IMPLEMENTED:** `POST /bookings/` with a
+  listing's catalogue id assigns the guide who owns it, records
+  `guide_listing_id`, and takes the seats; cancelling or the guide declining
+  gives them back exactly once. Seeded content still routes to the single
+  catalogue guide. `BookingCreate.guests` is bounded 1–100 because it now
+  moves a seat count.
+- **Approval workflow routes exist:** `/experience-workflow/proposals`,
+  `/queue/proposals`, `/change-requests`, `/queue/change-requests` and their
+  decision endpoints (proposal gate: regional-head or content-manager;
+  change-request gate: regional-head only). Publishing an approved proposal
+  creates the same live listing the catalogue serves. The app does not yet
+  surface this workflow — a guide edits listings directly.
+- **Listing photos — IMPLEMENTED:** `POST /guide/listings/{id}/photo` takes
+  a JPEG/PNG/WebP up to 5 MB, validates the bytes (not the filename), stores
+  it under `/uploads/listings/{id}/` and returns the listing with
+  `hero_image`. Replacing it deletes the old file; clearing it
+  (`PATCH {"hero_image": null}`) or deleting the listing removes it too. A
+  URL cannot be set directly — only an uploaded file. The catalogue card and
+  detail page use it, falling back to a category photo when a guide has not
+  added one. The app picks from the photo library, downscales to 1600 px and
+  uploads after the listing is saved.
+- **Still missing:** earnings/payouts, performance metrics and availability
+  calendars.
+- The app never presents any of the unbuilt pieces as available.
 
-## 9. Misc
+## 9. Listing slugs
+
+- A listing's slug is generated once at create time (`annapurna-base-camp-trek`,
+  `-2` on collision) and **never regenerated on rename**, so a shared link keeps
+  working. `GET /guide/listings` returns it as `slug` / `public_slug` with
+  `is_public`; the listings card shows a `Live` chip for an active row and
+  `Paused` otherwise.
+
+## 10. Misc
 
 - No pagination on `/experiences`, `/bookings`, `/bookmarks` — the app
   fetches full lists; fine at current data volumes, will need
   `?page&per_page` later.
 - `POST /profile/photos/upload` returns a relative `/uploads/{id}/{file}`
-  URL; the app does not yet wire avatar upload (no absolute-URL resolution
-  guarantee documented).
-- No server-side avatar for hosts on seeded rows — profile shows initials
-  fallback rather than a fabricated photo.
+  URL; the app resolves such paths with `AppConfig.resolveMedia`, and avatar
+  upload is now wired end to end in `/profile/edit` (pick → upload → store the
+  path).
+- **`PATCH /profile/me` reads `avatar_url`, not `avatarUrl`.** The response
+  object spells it camelCase, and `ProfileUpdate` silently ignores unknown
+  keys — sending the response spelling returns 200 and stores nothing. Pinned
+  by `test/profile_edit_test.dart`. Upload validation and the served directory are shared with
+  listing photos (`backend/app/core/storage.py`).- No server-side avatar for hosts on seeded rows — profile shows initials fallback rather than a fabricated photo.
+
+## 11. Password reset and change — IMPLEMENTED (delivery caveat)
+
+- **Contract as built:** `POST /auth/forgot-password` → `{email}` → 200 with
+  one generic `{message}` whether or not the address is registered (the
+  endpoint is built to prevent user enumeration). The backend sends the reset
+  email itself through the Supabase Admin API; with no Supabase credentials it
+  still returns 200 and only logs that it could not send.
+- **Mobile behavior:** `/forgot-password` posts the email and renders the
+  server's own message — it never states that the address exists and never
+  claims delivery on its own. Because a deployment without mail configured
+  cannot deliver, the confirmation also carries an honest note and a
+  **Contact support** link. `POST /auth/change-password`
+  (`current_password`, `new_password`) backs `/settings/password`, reachable
+  from Profile → Account; the server's 400 detail ("Current password is
+  incorrect") is shown verbatim.
+- **Tests:** `test/forgot_password_test.dart` (validation, trimmed email,
+  server message shown, backend failure surfaced).
+- **To close the caveat:** configure `SUPABASE_URL` +
+  `SUPABASE_SERVICE_ROLE_KEY` + `RESET_PASSWORD_REDIRECT_URL` on the backend,
+  or add a mobile deep-link reset route.
+
+## 12. Host workspace — IMPLEMENTED (three gaps, stated in-app)
+
+- **Role boundary:** `host` is self-registerable and separate from `guide`
+  (`backend/app/core/roles.py`). Every `/host/*` route runs `current_host`,
+  which answers 403 unless the account's role is exactly `host` and scopes all
+  queries to that host.
+- **Implemented:** `/host` opens a three-tab console — **Experiences**
+  (`GET|POST /host/experiences`, `PATCH|DELETE /host/experiences/{id}`),
+  **Tours** (`GET|POST /host/tours`, `PATCH|DELETE /host/tours/{id}`) and
+  **Bookings** (`GET /host/bookings`, `PATCH /host/bookings/{id}` with
+  `accepted|rejected`). Both editors validate against the server's
+  `HostExperienceCreate` / `HostTourCreate` constraints before a round trip.
+- **Deliberately not offered:**
+  - `POST /host/bookings` — a host entering an off-platform booking by hand is
+    a desk task, not a phone one; the endpoint exists but no UI reaches it.
+  - Marking a booking `completed` — `PATCH` accepts only `accepted`/`rejected`,
+    so the app does not present a state the server would refuse.
+  - Toggling `is_active` on a host experience/tour — the response carries the
+    flag but no host route can change it, so the app shows Active/Inactive and
+    never a switch that would 404.
+  - Earnings, payouts and performance — no `/host/*` endpoint returns them.
+- **Host approval is enforced at login, not in the app:**
+  `AuthService.authenticate_user` refuses a `host` row with no approved
+  `host_applications` row ("Your host account is not active yet…"), and
+  approval is the only moment a host login is minted
+  (`operations.review_host_application` → `_provision_host_user`). So the
+  workspace is reachable only by an approved host, and the app adds no
+  approval claim of its own — it simply shows the role the backend reports.
+  There is no mobile host-application form; applying stays on the website
+  (`POST /host-applications[/submit]`), and mobile signup remains
+  traveler-only.
+- **Tests:** `test/host_models_test.dart` (wire parsing, validation mirrors,
+  booking decision rules), `test/app_router_redirect_test.dart` (host vs
+  traveler vs guide guards).

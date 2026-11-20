@@ -1,4 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy import Text
 from sqlalchemy.orm import Session
 from typing import List, Optional, Dict, Any
 from app.core.database import get_db
@@ -6,7 +7,7 @@ from app.core.dependencies import require_role
 from app.core.roles import ADMIN, is_assignable_role, normalize_role
 from app.models.user import User
 from app.models.guide import Guide
-from app.models.booking import Booking
+from app.models.booking import Booking, BookingStatus
 from app.services.auth_service import AuthService
 
 router = APIRouter()
@@ -125,7 +126,8 @@ def list_guides_admin(
 ) -> List[dict]:
     query = db.query(Guide)
     if city:
-        query = query.filter(Guide.cities.contains([city]))
+        # Match the quoted element in the JSON city list (see GuideService).
+        query = query.filter(Guide.cities.cast(Text).like(f'%"{city}"%'))
     guides = query.all()
     return [
         {
@@ -280,7 +282,7 @@ def list_bookings(
             "date": str(b.date) if b.date else None,
             "guests": b.guests,
             "status": b.status,
-            "total_price": b.total_price,
+            "total_price": b.price,
         }
         for b in bookings
     ]
@@ -313,7 +315,7 @@ def cancel_booking(
     booking = db.query(Booking).filter(Booking.id == booking_id).first()
     if not booking:
         raise HTTPException(status_code=404, detail="Booking not found")
-    booking.status = "cancelled"
+    booking.status = BookingStatus.cancelled
     db.commit()
     return {"status": "ok", "message": "Booking cancelled"}
 

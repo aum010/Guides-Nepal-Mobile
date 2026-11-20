@@ -1,4 +1,5 @@
 """Set known passwords for dev seed users that had undocumented passwords."""
+
 from app.core.roles import (
     ADMIN,
     CONTENT_MANAGER,
@@ -8,7 +9,11 @@ from app.core.roles import (
     REGIONAL_HEAD,
 )
 from app.core.database import SessionLocal
-from app.core.security import get_password_hash, verify_password, validate_password_strength
+from app.core.security import (
+    get_password_hash,
+    verify_password,
+    validate_password_strength,
+)
 from app.models.user import User
 
 # All credentials for every dashboard role in the project.
@@ -18,12 +23,12 @@ from app.models.user import User
 # `guide` (and every staff role) is outside SELF_REGISTERABLE_ROLES, so the
 # public registration endpoint refuses to mint it.
 CREDENTIALS = {
-    "admin@guides-nepal.com":        {"password": "Admin@12345",      "role": ADMIN},
-    "content@guides-nepal.com":      {"password": "Content@2024",     "role": CONTENT_MANAGER},
-    "regional@guides-nepal.com":     {"password": "Regional@2024",    "role": REGIONAL_HEAD},
-    "support@guides-nepal.com":      {"password": "Support@2024",     "role": CUSTOMER_SUPPORT},
-    "host@guides-nepal.com":         {"password": "Host@2024",        "role": HOST},
-    "guide@guides-nepal.com":        {"password": "Guide@2024",       "role": GUIDE},
+    "admin@guides-nepal.com": {"password": "Admin@12345", "role": ADMIN},
+    "content@guides-nepal.com": {"password": "Content@2024", "role": CONTENT_MANAGER},
+    "regional@guides-nepal.com": {"password": "Regional@2024", "role": REGIONAL_HEAD},
+    "support@guides-nepal.com": {"password": "Support@2024", "role": CUSTOMER_SUPPORT},
+    "host@guides-nepal.com": {"password": "Host@2024", "role": HOST},
+    "guide@guides-nepal.com": {"password": "Guide@2024", "role": GUIDE},
 }
 
 db = SessionLocal()
@@ -53,20 +58,28 @@ for email, info in CREDENTIALS.items():
         db.refresh(user)
         # Verify the password works
         ok = verify_password(password, user.hashed_password)
-        print(f"  [UPDATED] {email:35s} | Role: {role:20s} | Password: {password:20s} | Verified: {ok}")
+        print(
+            f"  [UPDATED] {email:35s} | Role: {role:20s} | Password: {password:20s} | Verified: {ok}"
+        )
     else:
         # Create new user
-        db.add(User(
-            email=email,
-            firstName=email.split("@")[0].title(),
-            lastName="User",
-            hashed_password=get_password_hash(password),
-            role=role,
-            is_active=True,
-        ))
+        db.add(
+            User(
+                email=email,
+                firstName=email.split("@")[0].title(),
+                lastName="User",
+                hashed_password=get_password_hash(password),
+                role=role,
+                is_active=True,
+            )
+        )
         db.commit()
-        ok = verify_password(password, db.query(User).filter(User.email == email).first().hashed_password)
-        print(f"  [CREATED] {email:35s} | Role: {role:20s} | Password: {password:20s} | Verified: {ok}")
+        created = db.query(User).filter(User.email == email).first()
+        assert created is not None, f"seed user {email} vanished after insert"
+        ok = verify_password(password, created.hashed_password)
+        print(
+            f"  [CREATED] {email:35s} | Role: {role:20s} | Password: {password:20s} | Verified: {ok}"
+        )
 
 print("=" * 80)
 print(f"Total users: {db.query(User).count()}")

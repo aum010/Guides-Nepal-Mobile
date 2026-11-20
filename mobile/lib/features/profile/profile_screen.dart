@@ -75,8 +75,46 @@ class ProfileScreen extends ConsumerWidget {
                           ],
                         ),
                       ),
+                      // Editing lives on the identity itself, where a traveler
+                      // looks when the name or photo is wrong.
+                      IconButton(
+                        tooltip: AppStrings.editProfile,
+                        icon: const Icon(Icons.edit_outlined,
+                            size: 20, color: AppColors.secondary),
+                        onPressed: () => context.push('/profile/edit'),
+                      ),
                     ],
                   ),
+                  if (user != null &&
+                      ((user.phone?.isNotEmpty ?? false) ||
+                          (user.bio?.isNotEmpty ?? false))) ...[
+                    const SizedBox(height: AppSpacing.x3),
+                    if (user.phone?.isNotEmpty ?? false)
+                      Row(
+                        children: [
+                          const Icon(Icons.call_outlined,
+                              size: 15, color: AppColors.textTertiary),
+                          const SizedBox(width: 6),
+                          Text(
+                            user.phone!,
+                            style: AppTypography.small.copyWith(
+                              color: AppColors.textSecondary,
+                            ),
+                          ),
+                        ],
+                      ),
+                    if (user.bio?.isNotEmpty ?? false) ...[
+                      const SizedBox(height: AppSpacing.x1),
+                      Text(
+                        user.bio!,
+                        style: AppTypography.small.copyWith(
+                          color: AppColors.textSecondary,
+                        ),
+                        maxLines: 3,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ],
+                  ],
                   const SizedBox(height: AppSpacing.x6),
                   const _SectionLabel(AppStrings.sectionYourActivity),
                   _ActionTile(
@@ -114,6 +152,16 @@ class ProfileScreen extends ConsumerWidget {
                     subtitle: 'Reach the support team',
                     onTap: () => context.push('/contact'),
                   ),
+                  if (auth.isHost) ...[
+                    const SizedBox(height: AppSpacing.x6),
+                    const _SectionLabel(AppStrings.sectionHostTools),
+                    _ActionTile(
+                      icon: Icons.home_work_outlined,
+                      title: AppStrings.hostDashboard,
+                      subtitle: AppStrings.hostToolsSubtitle,
+                      onTap: () => context.push('/host'),
+                    ),
+                  ],
                   if (auth.isGuide) ...[
                     const SizedBox(height: AppSpacing.x6),
                     const _SectionLabel(AppStrings.sectionGuideTools),
@@ -133,6 +181,13 @@ class ProfileScreen extends ConsumerWidget {
                   ],
                   const SizedBox(height: AppSpacing.x6),
                   const _SectionLabel(AppStrings.sectionAccount),
+                  _ActionTile(
+                    icon: Icons.lock_reset_outlined,
+                    title: AppStrings.changePassword,
+                    subtitle: AppStrings.changePasswordSubtitle,
+                    onTap: () => context.push('/settings/password'),
+                  ),
+                  const SizedBox(height: AppSpacing.x6),
                   AppButton(
                     label: AppStrings.signOut,
                     variant: AppButtonVariant.outline,
@@ -228,12 +283,7 @@ class _SectionLabel extends StatelessWidget {
       padding: const EdgeInsets.only(bottom: AppSpacing.x2),
       child: Text(
         label.toUpperCase(),
-        style: AppTypography.caption.copyWith(
-          color: AppColors.textTertiary,
-          fontWeight: FontWeight.w700,
-          letterSpacing: 1.1,
-          fontSize: 11,
-        ),
+        style: AppTypography.eyebrow.copyWith(color: AppColors.textTertiary),
       ),
     );
   }

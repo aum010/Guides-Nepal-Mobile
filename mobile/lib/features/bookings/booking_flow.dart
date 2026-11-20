@@ -50,7 +50,7 @@ class _BookingFlowState extends ConsumerState<BookingFlow> {
     super.dispose();
   }
 
-  Future<void> _pickDate() async {
+  Future<void> _pickDate(Experience experience) async {
     final now = DateTime.now();
     final picked = await showDatePicker(
       context: context,
@@ -64,15 +64,22 @@ class _BookingFlowState extends ConsumerState<BookingFlow> {
 
     final repo = ref.read(bookingRepositoryProvider);
     try {
-      final availability = await repo.fetchAvailability(picked);
+      // Naming the experience makes the server check the guide who owns this
+      // row and, for a published listing, its remaining seats.
+      final availability = await repo.fetchAvailability(
+        picked,
+        experienceId: experience.id,
+      );
       if (!mounted) return;
       if (!availability.available) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
-              availability.status == 'reserved'
-                  ? 'That date is reserved. Please choose another.'
-                  : 'That date is already booked. Please choose another.',
+              availability.status == 'full'
+                  ? 'This trip has no seats left for the moment. Please try another experience.'
+                  : availability.status == 'reserved'
+                      ? 'That date is reserved. Please choose another.'
+                      : 'That date is already booked. Please choose another.',
             ),
           ),
         );
@@ -212,7 +219,7 @@ class _BookingFlowState extends ConsumerState<BookingFlow> {
         ),
         const SizedBox(height: AppSpacing.x6),
         InkWell(
-          onTap: _pickDate,
+          onTap: () => _pickDate(experience),
           borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
           child: Container(
             width: double.infinity,
@@ -246,14 +253,21 @@ class _BookingFlowState extends ConsumerState<BookingFlow> {
 
   Widget _guestsStep(Experience experience) {
     final unit = (experience.price ?? 0).toDouble();
+    // A published listing knows exactly how many seats are left; seeded rows
+    // do not, so the stepper stays open-ended for them.
+    final seatCap = experience.availableSpots;
+    final canAddMore = seatCap == null || _guests < seatCap;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text('How many guests?', style: AppTypography.h2),
         const SizedBox(height: AppSpacing.x2),
-        Text('You can adjust this before confirming.',
-            style: AppTypography.body
-                .copyWith(color: AppColors.textSecondary)),
+        Text(
+          seatCap != null
+              ? '${Formatters.guests(seatCap)} left on this trip.'
+              : 'You can adjust this before confirming.',
+          style: AppTypography.body.copyWith(color: AppColors.textSecondary),
+        ),
         const SizedBox(height: AppSpacing.x6),
         Container(
           padding: const EdgeInsets.all(AppSpacing.x4),
@@ -285,7 +299,7 @@ class _BookingFlowState extends ConsumerState<BookingFlow> {
               ),
               _RoundIconButton(
                 icon: Icons.add,
-                onTap: () => setState(() => _guests++),
+                onTap: canAddMore ? () => setState(() => _guests++) : null,
               ),
             ],
           ),

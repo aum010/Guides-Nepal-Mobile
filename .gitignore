@@ -93,8 +93,12 @@ node_modules/
 pip-log.txt
 pip-delete-this-directory.txt
 
+# Runtime data written by tests and local runs
+backend/app/private_host_applications/
+
 # Testing
 .coverage
+coverage.xml
 htmlcov/
 .pytest_cache/
 coverage/
@@ -113,6 +117,11 @@ temp/
 
 # Uploads (should not be committed)
 backend/app/uploads/
+# Runtime uploads now live in backend/uploads (the directory the app serves).
+# ``media/`` is seeded catalogue content and stays tracked; everything else
+# there is a traveller's or guide's own photo.
+backend/uploads/*
+!backend/uploads/media/
 
 # SSL certificates
 *.pem

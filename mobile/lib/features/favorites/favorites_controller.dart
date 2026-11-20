@@ -13,15 +13,19 @@ class FavoritesState {
   final List<Bookmark> bookmarks;
   final bool loaded;
 
-  bool isSaved(String slug) {
-    final needle = slug.trim();
-    return bookmarks.any((b) => b.link?.trim() == needle);
-  }
+  /// Matches on the experience id when the bookmark has one, falling back to
+  /// the slug for rows saved before the backend exposed `experience_id`.
+  bool isSaved(String slug, {int? experienceId}) =>
+      _match(slug, experienceId) != null;
 
-  int? idFor(String slug) {
+  int? idFor(String slug, {int? experienceId}) =>
+      _match(slug, experienceId)?.id;
+
+  Bookmark? _match(String slug, int? experienceId) {
     final needle = slug.trim();
     for (final b in bookmarks) {
-      if (b.link?.trim() == needle) return b.id;
+      if (experienceId != null && b.experienceId == experienceId) return b;
+      if (b.link?.trim() == needle) return b;
     }
     return null;
   }
@@ -63,12 +67,13 @@ class FavoritesController extends Notifier<FavoritesState> {
     if (!auth.isAuthenticated) {
       throw StateError('signin-required');
     }
-    final wasSaved = state.isSaved(experience.slug);
+    final wasSaved =
+        state.isSaved(experience.slug, experienceId: experience.id);
     final previous = state;
 
     // Optimistic update.
     if (wasSaved) {
-      final id = state.idFor(experience.slug)!;
+      final id = state.idFor(experience.slug, experienceId: experience.id)!;
       state = state.copyWith(
         bookmarks: [
           for (final b in state.bookmarks)
@@ -85,6 +90,7 @@ class FavoritesController extends Notifier<FavoritesState> {
             createdAt: DateTime.now(),
             title: experience.title,
             link: experience.slug,
+            experienceId: experience.id,
             city: experience.city,
             image: experience.heroImage.isEmpty ? null : experience.heroImage,
           ),
@@ -95,11 +101,14 @@ class FavoritesController extends Notifier<FavoritesState> {
     try {
       final repo = ref.read(favoritesRepositoryProvider);
       if (wasSaved) {
-        await repo.removeBookmark(previous.idFor(experience.slug)!);
+        await repo.removeBookmark(
+          previous.idFor(experience.slug, experienceId: experience.id)!,
+        );
       } else {
         await repo.addBookmark(
           title: experience.title,
           slug: experience.slug,
+          experienceId: experience.id,
           city: experience.city,
           image: experience.heroImage.isEmpty ? null : experience.heroImage,
         );

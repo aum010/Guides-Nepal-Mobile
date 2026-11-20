@@ -15,7 +15,7 @@ row then works on the Host Dashboard and the Host Frontend.
 """
 
 import hashlib
-from typing import Optional
+from typing import Any, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel, EmailStr
@@ -65,13 +65,16 @@ class HostCredentialSetup(BaseModel):
 def _ensure_host_application_columns(db: Session) -> None:
     """Add credential-lifecycle columns to pre-existing SQLite tables."""
     try:
-        inspector = inspect(db.bind)
-        if "host_applications" not in inspector.get_table_names():
+        bind = db.bind
+        if bind is None:
+            return
+        inspector = inspect(bind)
+        if inspector is None or "host_applications" not in inspector.get_table_names():
             return
         existing = {c["name"] for c in inspector.get_columns("host_applications")}
         for name, ddl in {
-            "credential_token_hash": "VARCHAR",
-            "credential_password_hash": "VARCHAR",
+            "credential_token_hash": "VARCHAR",  # nosec B105 -- DDL column type, not a credential
+            "credential_password_hash": "VARCHAR",  # nosec B105 -- DDL column type, not a credential
             "details_json": "TEXT",
             "user_id": "INTEGER",
             "reviewed_by": "VARCHAR",
@@ -178,7 +181,7 @@ def list_host_applications(
     status_filter: Optional[str] = None,
     db: Session = Depends(get_db),
     current_user: User = Depends(require_role(*APPLICATION_STAFF)),
-):
+) -> list[dict[str, Any]]:
     query = db.query(HostApplication)
     # Regional heads only see applications for their assigned region.
     if current_user.role == REGIONAL_HEAD and current_user.region:
@@ -207,7 +210,7 @@ def list_host_applications(
 @router.post("/host-applications", status_code=status.HTTP_201_CREATED)
 def create_host_application(
     payload: HostApplicationCreate, db: Session = Depends(get_db)
-):
+) -> dict[str, Any]:
     _ensure_host_application_columns(db)
     data = payload.model_dump()
     plaintext_password = data.pop("password", None)
@@ -229,7 +232,7 @@ def review_host_application(
     payload: HostApplicationReview,
     db: Session = Depends(get_db),
     current_user: User = Depends(require_role(*APPLICATION_STAFF)),
-):
+) -> dict[str, Any]:
     if payload.status not in ("approved", "rejected", "pending"):
         raise HTTPException(status_code=422, detail="Invalid status")
     _ensure_host_application_columns(db)
@@ -270,7 +273,7 @@ def review_host_application(
 def get_my_host_application(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
-):
+) -> dict[str, Any]:
     """Return the current user's host application status for the dashboard.
 
     A host can only reach this endpoint once they have a login account
@@ -302,7 +305,7 @@ def list_guide_applications(
     status_filter: Optional[str] = None,
     db: Session = Depends(get_db),
     current_user: User = Depends(require_role(*APPLICATION_STAFF)),
-):
+) -> list[dict[str, Any]]:
     query = db.query(GuideApplication)
     # Regional heads only see applications for their assigned region.
     if current_user.role == REGIONAL_HEAD and current_user.region:
@@ -332,7 +335,7 @@ def list_guide_applications(
 @router.post("/guide-applications", status_code=status.HTTP_201_CREATED)
 def create_guide_application(
     payload: GuideApplicationCreate, db: Session = Depends(get_db)
-):
+) -> dict[str, Any]:
     app = GuideApplication(**payload.model_dump(), status="pending")
     db.add(app)
     db.commit()
@@ -346,7 +349,7 @@ def review_guide_application(
     payload: GuideApplicationReview,
     db: Session = Depends(get_db),
     current_user: User = Depends(require_role(*APPLICATION_STAFF)),
-):
+) -> dict[str, Any]:
     if payload.status not in ("approved", "rejected", "pending"):
         raise HTTPException(status_code=422, detail="Invalid status")
     app = db.get(GuideApplication, application_id)
@@ -372,7 +375,7 @@ def list_support_tickets(
     status_filter: Optional[str] = None,
     db: Session = Depends(get_db),
     current_user: User = Depends(require_role(*TICKET_STAFF)),
-):
+) -> list[dict[str, Any]]:
     query = db.query(SupportTicket)
     if status_filter:
         query = query.filter(SupportTicket.status == status_filter)
@@ -396,7 +399,9 @@ def list_support_tickets(
 
 
 @router.post("/support-tickets", status_code=status.HTTP_201_CREATED)
-def create_support_ticket(payload: SupportTicketCreate, db: Session = Depends(get_db)):
+def create_support_ticket(
+    payload: SupportTicketCreate, db: Session = Depends(get_db)
+) -> dict[str, Any]:
     ticket = SupportTicket(**payload.model_dump(), status="open")
     db.add(ticket)
     db.commit()
@@ -410,7 +415,7 @@ def update_support_ticket(
     payload: SupportTicketUpdate,
     db: Session = Depends(get_db),
     current_user: User = Depends(require_role(*TICKET_STAFF)),
-):
+) -> dict[str, Any]:
     ticket = db.get(SupportTicket, ticket_id)
     if ticket is None:
         raise HTTPException(status_code=404, detail="Support ticket not found")
@@ -445,7 +450,7 @@ def get_support_ticket(
     ticket_id: int,
     db: Session = Depends(get_db),
     current_user: User = Depends(require_role(*TICKET_STAFF)),
-):
+) -> dict[str, Any]:
     ticket = db.get(SupportTicket, ticket_id)
     if ticket is None:
         raise HTTPException(status_code=404, detail="Support ticket not found")

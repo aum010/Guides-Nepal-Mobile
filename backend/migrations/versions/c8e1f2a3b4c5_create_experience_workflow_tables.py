@@ -53,7 +53,9 @@ def upgrade() -> None:
         sa.ForeignKeyConstraint(["guide_user_id"], ["users.id"]),
         sa.PrimaryKeyConstraint("id"),
     )
-    op.create_index(op.f("ix_experience_proposals_id"), "experience_proposals", ["id"], unique=False)
+    op.create_index(
+        op.f("ix_experience_proposals_id"), "experience_proposals", ["id"], unique=False
+    )
     op.create_index(
         op.f("ix_experience_proposals_guide_user_id"),
         "experience_proposals",
@@ -61,7 +63,10 @@ def upgrade() -> None:
         unique=False,
     )
     op.create_index(
-        op.f("ix_experience_proposals_status"), "experience_proposals", ["status"], unique=False
+        op.f("ix_experience_proposals_status"),
+        "experience_proposals",
+        ["status"],
+        unique=False,
     )
 
     op.create_table(
@@ -69,7 +74,9 @@ def upgrade() -> None:
         sa.Column("id", sa.Integer(), nullable=False),
         sa.Column("guide_user_id", sa.Integer(), nullable=False),
         sa.Column("listing_id", sa.Integer(), nullable=False),
-        sa.Column("change_class", sa.String(), nullable=False, server_default="material"),
+        sa.Column(
+            "change_class", sa.String(), nullable=False, server_default="material"
+        ),
         sa.Column("reason", sa.Text(), nullable=False, server_default=""),
         sa.Column("changes", sa.JSON(), nullable=False, server_default="[]"),
         sa.Column("documents", sa.JSON(), nullable=False, server_default="[]"),
@@ -92,7 +99,10 @@ def upgrade() -> None:
         sa.PrimaryKeyConstraint("id"),
     )
     op.create_index(
-        op.f("ix_experience_change_requests_id"), "experience_change_requests", ["id"], unique=False
+        op.f("ix_experience_change_requests_id"),
+        "experience_change_requests",
+        ["id"],
+        unique=False,
     )
     op.create_index(
         op.f("ix_experience_change_requests_guide_user_id"),
@@ -116,18 +126,25 @@ def upgrade() -> None:
 
 def downgrade() -> None:
     op.drop_index(
-        op.f("ix_experience_change_requests_status"), table_name="experience_change_requests"
+        op.f("ix_experience_change_requests_status"),
+        table_name="experience_change_requests",
     )
     op.drop_index(
-        op.f("ix_experience_change_requests_listing_id"), table_name="experience_change_requests"
+        op.f("ix_experience_change_requests_listing_id"),
+        table_name="experience_change_requests",
     )
     op.drop_index(
         op.f("ix_experience_change_requests_guide_user_id"),
         table_name="experience_change_requests",
     )
-    op.drop_index(op.f("ix_experience_change_requests_id"), table_name="experience_change_requests")
+    op.drop_index(
+        op.f("ix_experience_change_requests_id"),
+        table_name="experience_change_requests",
+    )
     op.drop_table("experience_change_requests")
-    op.drop_index(op.f("ix_experience_proposals_status"), table_name="experience_proposals")
+    op.drop_index(
+        op.f("ix_experience_proposals_status"), table_name="experience_proposals"
+    )
     op.drop_index(
         op.f("ix_experience_proposals_guide_user_id"), table_name="experience_proposals"
     )

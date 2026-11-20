@@ -4,7 +4,7 @@ import logging
 import httpx
 from sqlalchemy.orm import Session
 from app.models.user import User
-from app.schemas.auth import UserCreate, UserResponse
+from app.schemas.auth import PrivilegedUserCreate, UserCreate, UserResponse
 from app.core.security import (
     get_password_hash,
     verify_password,
@@ -160,7 +160,7 @@ class AuthService:
         except httpx.HTTPError as e:
             logger.warning("Supabase Auth sync error for %s: %s", email, e)
 
-    def register_user(self, user_in: UserCreate) -> User:
+    def register_user(self, user_in: UserCreate | PrivilegedUserCreate) -> User:
         if self.get_user_by_email(user_in.email):
             raise Exception("Email already registered")
 

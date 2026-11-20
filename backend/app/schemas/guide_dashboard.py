@@ -36,6 +36,9 @@ class GuideListingUpdate(BaseModel):
     price: Optional[float] = Field(default=None, ge=0)
     max_guests: Optional[int] = Field(default=None, ge=1, le=100)
     is_active: Optional[bool] = None
+    # Only ever set to null here ("remove the photo"): a real value comes from
+    # the upload endpoint, which validates the bytes and stores the file.
+    hero_image: Optional[str] = Field(default=None, max_length=500)
 
 
 class GuideListingResponse(GuideListingCreate):

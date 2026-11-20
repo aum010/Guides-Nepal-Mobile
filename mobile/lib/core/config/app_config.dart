@@ -41,4 +41,27 @@ abstract final class AppConfig {
   }
 
   static bool get isProduction => baseUrl == productionBaseUrl;
+
+  /// Origin that serves uploaded media (`/uploads/...`), i.e. the API host
+  /// without the versioned path.
+  static String get mediaOrigin {
+    const versioned = '/api/v1';
+    final base = baseUrl;
+    if (base.endsWith(versioned)) {
+      return base.substring(0, base.length - versioned.length);
+    }
+    return base;
+  }
+
+  /// Absolute URL for a media path.
+  ///
+  /// Photos are stored as paths (`/uploads/listings/4/photo.png`) so the
+  /// database never bakes in a host; the client resolves them here. Absolute
+  /// URLs (seeded content, host rows) pass through untouched.
+  static String resolveMedia(String url) {
+    if (url.isEmpty) return url;
+    if (url.startsWith('http://') || url.startsWith('https://')) return url;
+    if (url.startsWith('/')) return '$mediaOrigin$url';
+    return url;
+  }
 }

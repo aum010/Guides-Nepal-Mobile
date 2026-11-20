@@ -2,6 +2,7 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 
 import '../../app/theme/app_colors.dart';
+import '../../core/config/app_config.dart';
 
 /// Memory-aware cached image with a stable layout while loading and a
 /// branded fallback when the URL fails or is empty.
@@ -34,10 +35,16 @@ class NetworkImageView extends StatelessWidget {
           color: AppColors.tertiary, size: 28),
     );
 
-    final child = (url == null || url!.isEmpty)
+    // Uploaded photos arrive as `/uploads/...`; resolving here keeps every
+    // image widget correct without each caller knowing the API origin.
+    final resolved = (url == null || url!.isEmpty)
+        ? url
+        : AppConfig.resolveMedia(url!);
+
+    final child = (resolved == null || resolved.isEmpty)
         ? placeholder
         : CachedNetworkImage(
-            imageUrl: url!,
+            imageUrl: resolved,
             width: width,
             height: height,
             fit: fit,

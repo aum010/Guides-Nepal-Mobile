@@ -191,7 +191,7 @@ def delete_review(
     review_id: int,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
-):
+) -> None:
     """Delete your own review."""
     _require_traveler(current_user)
 

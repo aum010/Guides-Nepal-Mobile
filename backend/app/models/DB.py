@@ -4,6 +4,7 @@ Importing this module ensures every model class is loaded so that
 ``Base.metadata`` contains the full table catalog used by the app
 (startup schema creation, migrations, etc.).
 """
+
 from app.models.user import User as User
 from app.models.booking import Booking as Booking
 from app.models.bookmark import Bookmark as Bookmark
@@ -17,7 +18,9 @@ from app.models.host_guide import HostGuide as HostGuide
 from app.models.host_guide import HostExperienceGuide as HostExperienceGuide
 from app.models.support_ticket import SupportTicket as SupportTicket
 from app.models.experience_workflow import ExperienceProposal as ExperienceProposal
-from app.models.experience_workflow import ExperienceChangeRequest as ExperienceChangeRequest
+from app.models.experience_workflow import (
+    ExperienceChangeRequest as ExperienceChangeRequest,
+)
 
 __all__ = [
     "User",

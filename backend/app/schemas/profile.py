@@ -17,6 +17,8 @@ class BookmarkBase(BaseModel):
     city: Optional[str] = None
     image: Optional[str] = None
     link: Optional[str] = None
+    # Optional back-reference to the saved experience (older bookmarks have none).
+    experience_id: Optional[int] = None
 
 
 class BookmarkCreate(BookmarkBase):

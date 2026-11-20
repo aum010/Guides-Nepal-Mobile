@@ -68,9 +68,7 @@ ADMIN_LEVEL = frozenset({ADMIN})
 REGIONAL_OR_ABOVE = frozenset({ADMIN, REGIONAL_HEAD})
 SUPPORT_OR_ABOVE = frozenset({ADMIN, CUSTOMER_SUPPORT})
 CMS_OR_ABOVE = frozenset({ADMIN, CONTENT_MANAGER})
-STAFF_OR_ABOVE = frozenset(
-    {ADMIN, CONTENT_MANAGER, REGIONAL_HEAD, CUSTOMER_SUPPORT}
-)
+STAFF_OR_ABOVE = frozenset({ADMIN, CONTENT_MANAGER, REGIONAL_HEAD, CUSTOMER_SUPPORT})
 PROVIDER_LEVEL = frozenset({ADMIN, HOST, GUIDE})
 
 # Ascending order, lowest privilege first.  Matches the dashboard hierarchy.
@@ -95,8 +93,14 @@ LEGACY_ROLE_ALIASES = {
 }
 
 
-def normalize_role(role: str) -> str:
-    """Resolve a stored role value to its canonical name."""
+def normalize_role(role: str | None) -> str:
+    """Resolve a stored role value to its canonical name.
+
+    ``None`` (a nullable ``users.role`` row that predates the default) reads
+    as "no role": the empty string matches nothing, so every guard denies.
+    """
+    if role is None:
+        return ""
     return LEGACY_ROLE_ALIASES.get(role, role)
 
 
@@ -124,13 +128,13 @@ def is_assignable_role(role: str) -> bool:
     return normalize_role(role) in ADMIN_ASSIGNABLE_ROLES
 
 
-def role_rank(role: str) -> int:
+def role_rank(role: str | None) -> int:
     """Position of a role in the hierarchy (higher == more privileges)."""
     role = normalize_role(role)
     return ROLE_ORDER.index(role) if role in ROLE_ORDER else -1
 
 
-def has_access(user_role: str, *allowed_roles: str) -> bool:
+def has_access(user_role: str | None, *allowed_roles: str) -> bool:
     """True if ``user_role`` is authorized for a guard allowing ``allowed_roles``.
 
     ``admin`` is the highest role in the hierarchy, so it is implicitly

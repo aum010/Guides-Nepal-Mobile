@@ -29,12 +29,25 @@ abstract final class AppColors {
   static const Color shimmerBase = Color(0xFFEFE9E1);
   static const Color shimmerHighlight = Color(0xFFFAF7F2);
 
-  // Text
+  // Text — a contrast-checked ramp. Every level meets WCAG AA (4.5:1) for
+  // body text on both [background] and [surface]; the ratios are asserted in
+  // `test/design_tokens_test.dart`, so a future palette tweak cannot quietly
+  // drop below the floor.
+  //
+  //   textPrimary    12.1:1 on cream — headings and body
+  //   textSecondary   6.7:1 on cream — supporting copy
+  //   textTertiary    4.7:1 on cream — hints, metadata, placeholders
+  //   textDisabled    2.4:1 — inactive controls only (WCAG 1.4.3 exempts them)
   static const Color textPrimary = Color(0xFF213448);
-  static const Color textSecondary = Color(0xFF667085);
-  static const Color textTertiary = Color(0xFF98A2B3);
+  static const Color textSecondary = Color(0xFF4E5A69); // was #667085 (4.7:1)
+  static const Color textTertiary = Color(0xFF667085); // was #98A2B3 (2.4:1)
+  static const Color textDisabled = Color(0xFF98A2B3);
   static const Color textOnPrimary = Color(0xFFFFFFFF);
   static const Color textOnAccent = Color(0xFF213448);
+
+  // Rating stars are meaningful glyphs, so they need 3:1 as non-text UI —
+  // brand yellow (#F4B400) is only 1.9:1 on white and reads as decoration.
+  static const Color iconRating = Color(0xFFB7791F);
 
   // Status
   static const Color success = Color(0xFF1E7B4F);
@@ -60,6 +73,21 @@ abstract final class AppColors {
   // Elevation tints (shadows are always primary-tinted, never pure black,
   // so depth reads as atmosphere rather than dirt)
   static const Color shadowTint = Color(0x14213448); // 8% primary
+  static const Color shadowTintStrong = Color(0x2E213448); // 18% primary
+
+  // Overlays on photography, gradients and the brand plate.
+  //
+  // White-on-image needs its own ramp because it sits over unpredictable
+  // content: text never drops below ~86% white and fills never rise above
+  // ~22%, so a control stays legible over both a bright sky and a dark shrine.
+  static const Color onImageTextPrimary = Color(0xFFFFFFFF);
+  static const Color onImageTextSecondary = Color(0xDBFFFFFF); // 86% white
+  static const Color onImageFill = Color(0x2EFFFFFF); // 18% white chip/circle
+  static const Color onImageFillStrong = Color(0x38FFFFFF); // 22% white control
+  static const Color onImageBorder = Color(0x66FFFFFF); // 40% white hairline
+  static const Color onImageSurface = Color(0xF0FFFFFF); // 94% white glass pill
+  static const Color onImageShadow = Color(0x2E000000); // 18% drop shadow
+  static const Color ornamentFill = Color(0x12FFFFFF); // 7% decorative glow
 
   // Destination tile gradients (see destination_data.dart)
   static const Color tileKathmanduStart = Color(0xFF547792);

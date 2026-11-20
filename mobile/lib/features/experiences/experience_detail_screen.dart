@@ -87,7 +87,8 @@ class _DetailBody extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final favs = ref.watch(favoritesControllerProvider);
-    final isSaved = favs.isSaved(experience.slug);
+    final isSaved =
+        favs.isSaved(experience.slug, experienceId: experience.id);
     final reviews = ref.watch(experienceReviewsProvider(experience.id));
 
     return Stack(
@@ -118,7 +119,8 @@ class _DetailBody extends ConsumerWidget {
                     icon: isSaved
                         ? Icons.favorite_rounded
                         : Icons.favorite_border_rounded,
-                    iconColor: isSaved ? AppColors.favoriteActive : Colors.white,
+                    iconColor:
+                        isSaved ? AppColors.favoriteActive : AppColors.onImageTextPrimary,
                     onTap: () => _toggleSave(context, ref),
                   ),
                 ),
@@ -140,8 +142,8 @@ class _DetailBody extends ConsumerWidget {
                           begin: Alignment.topCenter,
                           end: Alignment(0, 0.35),
                           colors: [
-                            Color(0x66000000),
-                            Color(0x00000000),
+                            AppColors.imageScrimTop,
+                            AppColors.imageScrimBottom,
                           ],
                         ),
                       ),
@@ -166,7 +168,7 @@ class _DetailBody extends ConsumerWidget {
                       children: [
                         if (experience.rating != null) ...[
                           const Icon(Icons.star_rounded,
-                              size: 18, color: AppColors.accent),
+                              size: 18, color: AppColors.iconRating),
                           const SizedBox(width: 4),
                           Text(experience.rating!.toStringAsFixed(1),
                               style: AppTypography.bodyMedium),
@@ -191,6 +193,31 @@ class _DetailBody extends ConsumerWidget {
                       const SizedBox(height: AppSpacing.x3),
                       InfoChip(label: experience.category!),
                     ],
+                    // Only a published guide listing carries these: its
+                    // difficulty and how many seats are actually left.
+                    if (experience.difficulty != null ||
+                        experience.availableSpots != null) ...[
+                      const SizedBox(height: AppSpacing.x3),
+                      Wrap(
+                        spacing: AppSpacing.x2,
+                        runSpacing: AppSpacing.x2,
+                        children: [
+                          if (experience.difficulty != null)
+                            InfoChip(
+                              icon: Icons.hiking_outlined,
+                              label: experience.difficulty!,
+                            ),
+                          if (experience.availableSpots != null)
+                            InfoChip(
+                              icon: Icons.groups_outlined,
+                              label: experience.isSoldOut
+                                  ? 'Sold out'
+                                  : '${experience.availableSpots} of '
+                                      '${experience.maxGuests ?? experience.availableSpots} spots left',
+                            ),
+                        ],
+                      ),
+                    ],
                     // Up-to-the-moment notes for this experience's city —
                     // sits next to the listing so a change to the day is
                     // seen before the booking bar is used.
@@ -210,6 +237,33 @@ class _DetailBody extends ConsumerWidget {
                           style: AppTypography.body.copyWith(
                               color: AppColors.textSecondary)),
                     ],
+                    if (experience.itinerary != null &&
+                        experience.itinerary!.isNotEmpty) ...[
+                      const SizedBox(height: AppSpacing.x6),
+                      Text('What we will do', style: AppTypography.h3),
+                      const SizedBox(height: AppSpacing.x2),
+                      Text(experience.itinerary!,
+                          style: AppTypography.body.copyWith(
+                              color: AppColors.textSecondary)),
+                    ],
+                    if (experience.meetingPoint != null &&
+                        experience.meetingPoint!.isNotEmpty) ...[
+                      const SizedBox(height: AppSpacing.x5),
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Icon(Icons.place_outlined,
+                              size: 18, color: AppColors.secondary),
+                          const SizedBox(width: AppSpacing.x2),
+                          Expanded(
+                            child: Text(
+                              'Meet at ${experience.meetingPoint!}',
+                              style: AppTypography.bodyMedium,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
                     const SizedBox(height: AppSpacing.x8),
                     Text('Hosted by', style: AppTypography.h3),
                     const SizedBox(height: AppSpacing.x3),
@@ -221,7 +275,7 @@ class _DetailBody extends ConsumerWidget {
                         if (experience.rating != null &&
                             experience.reviewCount != null) ...[
                           const Icon(Icons.star_rounded,
-                              size: 16, color: AppColors.accent),
+                              size: 16, color: AppColors.iconRating),
                           const SizedBox(width: 3),
                           Text(
                             '${experience.rating!.toStringAsFixed(1)} · '
@@ -288,7 +342,7 @@ class _GlassIconButton extends StatelessWidget {
     required this.tooltip,
     required this.icon,
     required this.onTap,
-    this.iconColor = Colors.white,
+    this.iconColor = AppColors.onImageTextPrimary,
     this.iconSize = 22,
   });
 
@@ -306,9 +360,9 @@ class _GlassIconButton extends StatelessWidget {
         button: true,
         label: tooltip,
         child: Material(
-          color: Colors.white.withValues(alpha: 0.22),
-          shape: CircleBorder(
-            side: BorderSide(color: Colors.white.withValues(alpha: 0.4)),
+          color: AppColors.onImageFillStrong,
+          shape: const CircleBorder(
+            side: BorderSide(color: AppColors.onImageBorder),
           ),
           clipBehavior: Clip.antiAlias,
           child: InkWell(
@@ -390,7 +444,7 @@ class _HostCard extends StatelessWidget {
                       Row(
                         children: [
                           const Icon(Icons.star_rounded,
-                              size: 13, color: AppColors.accent),
+                              size: 13, color: AppColors.iconRating),
                           const SizedBox(width: 3),
                           Text(
                             host.rating.toStringAsFixed(1),
@@ -470,10 +524,8 @@ class _ReviewTile extends StatelessWidget {
                 backgroundColor: AppColors.surfacePeach,
                 child: Text(
                   initials,
-                  style: AppTypography.caption.copyWith(
+                  style: AppTypography.micro.copyWith(
                     color: AppColors.secondary,
-                    fontWeight: FontWeight.w700,
-                    fontSize: 11,
                   ),
                 ),
               ),
@@ -484,7 +536,7 @@ class _ReviewTile extends StatelessWidget {
                   children: [
                     Text(
                       userName,
-                      style: AppTypography.label.copyWith(fontSize: 14),
+                      style: AppTypography.label,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),
@@ -492,7 +544,6 @@ class _ReviewTile extends StatelessWidget {
                       Formatters.dateShort(review.createdAt),
                       style: AppTypography.caption.copyWith(
                         color: AppColors.textTertiary,
-                        fontSize: 11,
                       ),
                     ),
                   ],
@@ -506,7 +557,7 @@ class _ReviewTile extends StatelessWidget {
                           ? Icons.star_rounded
                           : Icons.star_outline_rounded,
                       size: 14,
-                      color: AppColors.accent,
+                      color: AppColors.iconRating,
                     ),
                 ],
               ),
@@ -560,7 +611,7 @@ class _BookingBar extends StatelessWidget {
                     children: [
                       Text(
                         Formatters.price(experience.price!),
-                        style: AppTypography.price.copyWith(fontSize: 18),
+                        style: AppTypography.priceMd,
                       ),
                       const SizedBox(width: 3),
                       Text(
@@ -573,14 +624,24 @@ class _BookingBar extends StatelessWidget {
                   )
                 else
                   Text('Price on request', style: AppTypography.subtitle),
+                if (experience.isSoldOut)
+                  Text(
+                    'No seats left right now',
+                    style: AppTypography.caption.copyWith(
+                      color: AppColors.textSecondary,
+                    ),
+                  ),
               ],
             ),
           ),
           const SizedBox(width: AppSpacing.x4),
           AppButton(
-            label: AppStrings.bookNow,
+            // A sold-out listing is not bookable: the server would refuse it,
+            // so the button says so instead of letting the flow fail at the
+            // last step.
+            label: experience.isSoldOut ? 'Sold out' : AppStrings.bookNow,
             expanded: false,
-            onPressed: experience.price == null
+            onPressed: experience.price == null || experience.isSoldOut
                 ? null
                 : () => context.push('/book/${experience.slug}'),
           ),

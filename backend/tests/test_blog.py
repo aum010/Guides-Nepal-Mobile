@@ -6,6 +6,9 @@
   dashboard table shows exactly what writers created.
 - Writes stay restricted to staff.
 """
+
+from sqlalchemy.orm import Session
+
 from fastapi.testclient import TestClient
 
 from app.core.security import create_access_token, get_password_hash
@@ -16,7 +19,7 @@ BLOG = "/api/v1/content/blog"
 STRONG_PASSWORD = "Blog@2024"
 
 
-def _make_user(db_session, email: str, role: str) -> User:
+def _make_user(db_session: Session, email: str, role: str) -> User:
     user = User(
         email=email,
         hashed_password=get_password_hash(STRONG_PASSWORD),
@@ -36,7 +39,7 @@ def _bearer(user: User) -> dict:
 
 
 class TestBlogVisibility:
-    def test_anonymous_sees_only_published(self, client: TestClient):
+    def test_anonymous_sees_only_published(self, client: TestClient) -> None:
         res = client.get(BLOG)
         assert res.status_code == 200
         posts = res.json()
@@ -52,13 +55,13 @@ class TestBlogVisibility:
         }
         assert all((p.get("status") or "").lower() == "published" for p in posts)
 
-    def test_anonymous_cannot_write(self, client: TestClient):
+    def test_anonymous_cannot_write(self, client: TestClient) -> None:
         res = client.post(BLOG, json={"title": "Nope", "slug": "nope"})
         assert res.status_code in (401, 403)
 
     def test_staff_sees_drafts_and_anonymous_does_not(
-        self, client: TestClient, db_session
-    ):
+        self, client: TestClient, db_session: Session
+    ) -> None:
         admin = _make_user(db_session, "blog-admin@example.com", "admin")
         created = client.post(
             BLOG,
@@ -81,7 +84,9 @@ class TestBlogVisibility:
         assert staff_detail.status_code == 200
         assert staff_detail.json()["title"] == "Draft Post"
 
-    def test_new_posts_default_to_draft(self, client: TestClient, db_session):
+    def test_new_posts_default_to_draft(
+        self, client: TestClient, db_session: Session
+    ) -> None:
         manager = _make_user(db_session, "blog-manager@example.com", "content-manager")
         created = client.post(
             BLOG,
@@ -91,6 +96,4 @@ class TestBlogVisibility:
         assert created.status_code == 200
         assert created.json()["status"] == "draft"
         # …so it stays hidden from the frontend until published.
-        assert all(
-            p["slug"] != "untitled-thoughts" for p in client.get(BLOG).json()
-        )
+        assert all(p["slug"] != "untitled-thoughts" for p in client.get(BLOG).json())

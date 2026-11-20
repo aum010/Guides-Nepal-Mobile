@@ -42,7 +42,7 @@ void main() {
     );
     expect(
       Formatters.relativeTime(now.subtract(const Duration(hours: 3))),
-      '3 h ago',
+      '3 hr ago',
     );
     expect(
       Formatters.relativeTime(now.subtract(const Duration(days: 1))),

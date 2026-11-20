@@ -297,7 +297,7 @@ class _RequestTileState extends ConsumerState<_RequestTile> {
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis),
               ),
-              _StatusChip(status: r.status),
+              BookingStatusChip(status: r.status),
             ],
           ),
           const SizedBox(height: AppSpacing.x2),
@@ -330,37 +330,6 @@ class _RequestTileState extends ConsumerState<_RequestTile> {
             ),
           ],
         ],
-      ),
-    );
-  }
-}
-
-class _StatusChip extends StatelessWidget {
-  const _StatusChip({required this.status});
-
-  final BookingStatus status;
-
-  @override
-  Widget build(BuildContext context) {
-    final (bg, fg) = switch (status) {
-      BookingStatus.upcoming || BookingStatus.accepted =>
-        (AppColors.successSurface, AppColors.success),
-      BookingStatus.completed => (AppColors.surfacePeach, AppColors.secondary),
-      BookingStatus.cancelled || BookingStatus.rejected =>
-        (AppColors.errorSurface, AppColors.error),
-      BookingStatus.archived => (AppColors.border, AppColors.textSecondary),
-    };
-    return Container(
-      padding: const EdgeInsets.symmetric(
-          horizontal: AppSpacing.x2 + 2, vertical: 4),
-      decoration: BoxDecoration(
-        color: bg,
-        borderRadius: BorderRadius.circular(AppSpacing.radiusPill),
-      ),
-      child: Text(
-        status.name.toUpperCase(),
-        style: AppTypography.caption
-            .copyWith(color: fg, fontWeight: FontWeight.w600, fontSize: 10),
       ),
     );
   }
@@ -529,15 +498,43 @@ class _ListingCardState extends ConsumerState<_ListingCard> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
+              // The photo travellers actually see, so the guide can tell at a
+              // glance which listings still need one.
+              if (listing.heroImage != null && listing.heroImage!.isNotEmpty) ...[
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(8),
+                  child: NetworkImageView(
+                    url: listing.heroImage,
+                    width: 56,
+                    height: 56,
+                    semanticsLabel: 'Photo for ${listing.title}',
+                  ),
+                ),
+                const SizedBox(width: AppSpacing.x3),
+              ] else ...[
+                Container(
+                  width: 56,
+                  height: 56,
+                  decoration: BoxDecoration(
+                    color: AppColors.surfacePeach,
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: const Icon(Icons.add_photo_alternate_outlined,
+                      size: 20, color: AppColors.secondary),
+                ),
+                const SizedBox(width: AppSpacing.x3),
+              ],
               Expanded(
                 child: Text(listing.title,
                     style: AppTypography.subtitle,
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis),
               ),
-              if (!listing.isActive)
-                const InfoChip(label: 'Paused'),
+              // An active listing is on the public site; saying so is the
+              // only way a guide learns their work is bookable, not a draft.
+              InfoChip(label: listing.isActive ? 'Live' : 'Paused'),
             ],
           ),
           const SizedBox(height: AppSpacing.x2),

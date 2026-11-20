@@ -63,40 +63,40 @@ class AppButton extends StatelessWidget {
           backgroundColor: AppColors.accent,
           foregroundColor: AppColors.textOnAccent,
           disabledBackgroundColor: AppColors.border,
-          disabledForegroundColor: AppColors.textTertiary,
+          disabledForegroundColor: AppColors.textDisabled,
           minimumSize: const Size(
               AppSpacing.minTouchTarget, AppSpacing.minTouchTarget + 6),
           padding: const EdgeInsets.symmetric(horizontal: AppSpacing.x6),
           shape: shape,
-          textStyle: AppTypography.label.copyWith(fontSize: 16),
+          textStyle: AppTypography.button,
         );
       case AppButtonVariant.secondary:
         style = FilledButton.styleFrom(
           backgroundColor: AppColors.primary,
           foregroundColor: AppColors.textOnPrimary,
           disabledBackgroundColor: AppColors.border,
-          disabledForegroundColor: AppColors.textTertiary,
+          disabledForegroundColor: AppColors.textDisabled,
           minimumSize: const Size(
               AppSpacing.minTouchTarget, AppSpacing.minTouchTarget + 6),
           padding: const EdgeInsets.symmetric(horizontal: AppSpacing.x6),
           shape: shape,
-          textStyle: AppTypography.label.copyWith(fontSize: 16),
+          textStyle: AppTypography.button,
         );
       case AppButtonVariant.outline:
         style = OutlinedButton.styleFrom(
           foregroundColor: AppColors.primary,
-          disabledForegroundColor: AppColors.textTertiary,
+          disabledForegroundColor: AppColors.textDisabled,
           side: const BorderSide(color: AppColors.primary, width: 1.4),
           minimumSize: const Size(
               AppSpacing.minTouchTarget, AppSpacing.minTouchTarget + 6),
           padding: const EdgeInsets.symmetric(horizontal: AppSpacing.x6),
           shape: shape,
-          textStyle: AppTypography.label.copyWith(fontSize: 16),
+          textStyle: AppTypography.button,
         );
       case AppButtonVariant.ghost:
         style = TextButton.styleFrom(
           foregroundColor: AppColors.primary,
-          disabledForegroundColor: AppColors.textTertiary,
+          disabledForegroundColor: AppColors.textDisabled,
           minimumSize: const Size(
               AppSpacing.minTouchTarget, AppSpacing.minTouchTarget),
           padding: const EdgeInsets.symmetric(horizontal: AppSpacing.x3),

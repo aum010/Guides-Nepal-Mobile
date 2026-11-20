@@ -1,24 +1,36 @@
-from sqlalchemy import Column, Integer, String, DateTime
+from datetime import datetime
+
+from sqlalchemy import DateTime, Integer, String
+from sqlalchemy.orm import Mapped, mapped_column
 from sqlalchemy.sql import func
+
 from app.core.database import Base
 
 
 class SupportTicket(Base):
     __tablename__ = "support_tickets"
 
-    id = Column(Integer, primary_key=True, index=True)
-    subject = Column(String, nullable=True)
-    description = Column(String, nullable=True)
-    customer_name = Column(String, nullable=True)
-    customer_email = Column(String, index=True, nullable=True)
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    subject: Mapped[str | None] = mapped_column(String, nullable=True)
+    description: Mapped[str | None] = mapped_column(String, nullable=True)
+    customer_name: Mapped[str | None] = mapped_column(String, nullable=True)
+    customer_email: Mapped[str | None] = mapped_column(
+        String, index=True, nullable=True
+    )
     # open / in_progress / resolved / closed
-    status = Column(String, default="open")
+    status: Mapped[str | None] = mapped_column(String, default="open")
     # low / medium / high / urgent
-    priority = Column(String, default="medium")
-    assigned_to = Column(String, nullable=True)
+    priority: Mapped[str | None] = mapped_column(String, default="medium")
+    assigned_to: Mapped[str | None] = mapped_column(String, nullable=True)
     # free-text resolution note entered by support staff
-    resolution = Column(String, nullable=True)
+    resolution: Mapped[str | None] = mapped_column(String, nullable=True)
     # timestamp set when a resolution note is provided
-    resolved_at = Column(DateTime(timezone=True), nullable=True)
-    created_at = Column(DateTime(timezone=True), server_default=func.now())
-    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+    resolved_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    created_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
+    updated_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), onupdate=func.now()
+    )

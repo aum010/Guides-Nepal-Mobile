@@ -1,5 +1,7 @@
 """Host-managed guides: creation (mirrors BecomeGuidePage) + experience assignment."""
 
+from typing import Any
+
 from fastapi import APIRouter, Depends, status
 from sqlalchemy.orm import Session
 
@@ -18,37 +20,59 @@ router = APIRouter(prefix="/host/guides", tags=["host-guides"])
 
 
 @router.get("", response_model=list[HostGuideResponse])
-def list_guides(db: Session = Depends(get_db), host: User = Depends(current_host)):
+def list_guides(
+    db: Session = Depends(get_db), host: User = Depends(current_host)
+) -> list[dict[str, Any]]:
     return HostGuideService(db).list_guides(int(host.id))
 
 
 @router.post("", response_model=HostGuideResponse, status_code=status.HTTP_201_CREATED)
-def create_guide(payload: HostGuideCreate, db: Session = Depends(get_db), host: User = Depends(current_host)):
+def create_guide(
+    payload: HostGuideCreate,
+    db: Session = Depends(get_db),
+    host: User = Depends(current_host),
+) -> dict[str, Any]:
     return HostGuideService(db).create_guide(host, payload)
 
 
 @router.post("/{host_guide_id}/suspend", response_model=HostGuideResponse)
-def suspend_guide(host_guide_id: int, db: Session = Depends(get_db), host: User = Depends(current_host)):
+def suspend_guide(
+    host_guide_id: int,
+    db: Session = Depends(get_db),
+    host: User = Depends(current_host),
+) -> dict[str, Any]:
     return HostGuideService(db).suspend_guide(int(host.id), host_guide_id)
 
 
 @router.post("/{host_guide_id}/reactivate", response_model=HostGuideResponse)
-def reactivate_guide(host_guide_id: int, db: Session = Depends(get_db), host: User = Depends(current_host)):
+def reactivate_guide(
+    host_guide_id: int,
+    db: Session = Depends(get_db),
+    host: User = Depends(current_host),
+) -> dict[str, Any]:
     return HostGuideService(db).reactivate_guide(int(host.id), host_guide_id)
 
 
 @router.get("/experiences/{experience_id}/guides")
-def list_experience_guides(experience_id: int, db: Session = Depends(get_db), host: User = Depends(current_host)):
+def list_experience_guides(
+    experience_id: int,
+    db: Session = Depends(get_db),
+    host: User = Depends(current_host),
+) -> list[dict[str, Any]]:
     return HostGuideService(db).list_experience_guides(int(host.id), experience_id)
 
 
-@router.post("/experiences/{experience_id}/guides", response_model=HostExperienceGuideResponse, status_code=status.HTTP_201_CREATED)
+@router.post(
+    "/experiences/{experience_id}/guides",
+    response_model=HostExperienceGuideResponse,
+    status_code=status.HTTP_201_CREATED,
+)
 def assign_experience_guide(
     experience_id: int,
     payload: HostExperienceGuideAssign,
     db: Session = Depends(get_db),
     host: User = Depends(current_host),
-):
+) -> dict[str, Any]:
     return HostGuideService(db).assign_guide(int(host.id), experience_id, payload)
 
 
@@ -58,5 +82,5 @@ def unassign_experience_guide(
     guide_id: int,
     db: Session = Depends(get_db),
     host: User = Depends(current_host),
-):
+) -> dict[str, Any]:
     return HostGuideService(db).unassign_guide(int(host.id), experience_id, guide_id)

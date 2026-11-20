@@ -10,6 +10,7 @@ Approval gates — enforced by :func:`app.core.dependencies.require_role`
 Guides only ever touch their own rows — every guide-scoped route filters by
 the authenticated user id, so ownership cannot be forged from the client.
 """
+
 from typing import Optional
 
 from fastapi import APIRouter, Depends, Query
@@ -77,7 +78,9 @@ def update_my_proposal(
     guide: User = Depends(GUIDE_ONLY),
     db: Session = Depends(get_db),
 ) -> dict:
-    return ExperienceWorkflowService(db).update_proposal(int(guide.id), proposal_id, payload)
+    return ExperienceWorkflowService(db).update_proposal(
+        int(guide.id), proposal_id, payload
+    )
 
 
 @router.post("/proposals/{proposal_id}/submit")
@@ -141,7 +144,9 @@ def list_my_change_requests(
     guide: User = Depends(GUIDE_ONLY),
     db: Session = Depends(get_db),
 ) -> list:
-    return ExperienceWorkflowService(db).list_change_requests(int(guide.id), status=status)
+    return ExperienceWorkflowService(db).list_change_requests(
+        int(guide.id), status=status
+    )
 
 
 @router.post("/change-requests", status_code=201)
@@ -169,7 +174,9 @@ def update_my_change_request(
     guide: User = Depends(GUIDE_ONLY),
     db: Session = Depends(get_db),
 ) -> dict:
-    return ExperienceWorkflowService(db).update_change_request(int(guide.id), cr_id, payload)
+    return ExperienceWorkflowService(db).update_change_request(
+        int(guide.id), cr_id, payload
+    )
 
 
 @router.post("/change-requests/{cr_id}/submit")

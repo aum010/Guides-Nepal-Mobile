@@ -1,7 +1,7 @@
 """create users table
 
 Revision ID: 5da9b06e2e4f
-Revises: 
+Revises:
 Create Date: 2026-01-24 08:23:18.948071
 
 """
@@ -24,8 +24,12 @@ def upgrade() -> None:
         "users",
         sa.Column("id", sa.Integer(), nullable=False),
         sa.Column("email", sa.String(), nullable=False),
-        sa.Column("first_name", sa.String(), nullable=True),
-        sa.Column("last_name", sa.String(), nullable=True),
+        # Column names follow the ORM (``User.firstName``): the app builds the
+        # schema with ``Base.metadata.create_all``, so the models are what every
+        # real database already has.  Creating ``first_name`` here produced a
+        # schema the application could not query.
+        sa.Column("firstName", sa.String(), nullable=True),
+        sa.Column("lastName", sa.String(), nullable=True),
         sa.Column("hashed_password", sa.String(), nullable=False),
         sa.Column("phone", sa.String(), nullable=True),
         sa.Column("role", sa.String(), nullable=True, server_default="traveler"),
@@ -47,7 +51,6 @@ def upgrade() -> None:
         ),
         sa.PrimaryKeyConstraint("id"),
     )
-    op.create_unique_constraint("uq_users_email", "users", ["email"])
     op.create_index(op.f("ix_users_id"), "users", ["id"], unique=False)
     op.create_index(op.f("ix_users_email"), "users", ["email"], unique=True)
 
@@ -56,6 +59,4 @@ def downgrade() -> None:
     """Downgrade schema."""
     op.drop_index(op.f("ix_users_email"), table_name="users")
     op.drop_index(op.f("ix_users_id"), table_name="users")
-    op.drop_constraint("uq_users_email", "users", type_="unique")
     op.drop_table("users")
-

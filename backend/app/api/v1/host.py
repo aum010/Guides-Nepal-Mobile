@@ -1,4 +1,5 @@
 import re
+from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy.orm import Session
@@ -40,7 +41,7 @@ def slugify(value: str) -> str:
 @router.get("/experiences", response_model=list[HostExperienceResponse])
 def list_host_experiences(
     db: Session = Depends(get_db), host: User = Depends(current_host)
-):
+) -> list[HostExperience]:
     return (
         db.query(HostExperience)
         .filter(HostExperience.host_id == host.id)
@@ -54,7 +55,7 @@ def create_host_experience(
     payload: HostExperienceCreate,
     db: Session = Depends(get_db),
     host: User = Depends(current_host),
-):
+) -> HostExperience:
     slug = slugify(payload.title)
     if (
         db.query(HostExperience)
@@ -77,7 +78,7 @@ def update_host_experience(
     payload: HostExperienceCreate,
     db: Session = Depends(get_db),
     host: User = Depends(current_host),
-):
+) -> HostExperience:
     experience = (
         db.query(HostExperience)
         .filter(HostExperience.id == experience_id, HostExperience.host_id == host.id)
@@ -112,7 +113,7 @@ def remove_host_experience(
     experience_id: int,
     db: Session = Depends(get_db),
     host: User = Depends(current_host),
-):
+) -> dict[str, str]:
     experience = (
         db.query(HostExperience)
         .filter(HostExperience.id == experience_id, HostExperience.host_id == host.id)
@@ -126,7 +127,9 @@ def remove_host_experience(
 
 
 @router.get("/tours", response_model=list[HostTourResponse])
-def list_host_tours(db: Session = Depends(get_db), host: User = Depends(current_host)):
+def list_host_tours(
+    db: Session = Depends(get_db), host: User = Depends(current_host)
+) -> list[HostTour]:
     return (
         db.query(HostTour)
         .filter(HostTour.host_id == host.id)
@@ -140,7 +143,7 @@ def create_host_tour(
     payload: HostTourCreate,
     db: Session = Depends(get_db),
     host: User = Depends(current_host),
-):
+) -> HostTour:
     tour = HostTour(host_id=host.id, **payload.model_dump())
     db.add(tour)
     db.commit()
@@ -154,7 +157,7 @@ def update_host_tour(
     payload: HostTourCreate,
     db: Session = Depends(get_db),
     host: User = Depends(current_host),
-):
+) -> HostTour:
     tour = (
         db.query(HostTour)
         .filter(HostTour.id == tour_id, HostTour.host_id == host.id)
@@ -172,7 +175,7 @@ def update_host_tour(
 @router.delete("/tours/{tour_id}")
 def remove_host_tour(
     tour_id: int, db: Session = Depends(get_db), host: User = Depends(current_host)
-):
+) -> dict[str, str]:
     tour = (
         db.query(HostTour)
         .filter(HostTour.id == tour_id, HostTour.host_id == host.id)
@@ -188,7 +191,7 @@ def remove_host_tour(
 @router.get("/bookings", response_model=list[HostBookingResponse])
 def list_host_bookings(
     db: Session = Depends(get_db), host: User = Depends(current_host)
-):
+) -> list[dict[str, Any]]:
     rows = (
         db.query(HostBooking, HostExperience)
         .join(HostExperience, HostBooking.experience_id == HostExperience.id)
@@ -207,7 +210,7 @@ def create_host_booking(
     payload: HostBookingCreate,
     db: Session = Depends(get_db),
     host: User = Depends(current_host),
-):
+) -> dict[str, Any]:
     experience = (
         db.query(HostExperience)
         .filter(
@@ -236,7 +239,7 @@ def decide_host_booking(
     payload: dict,
     db: Session = Depends(get_db),
     host: User = Depends(current_host),
-):
+) -> dict[str, Any]:
     status = payload.get("status")
     if status not in {"accepted", "rejected"}:
         raise HTTPException(

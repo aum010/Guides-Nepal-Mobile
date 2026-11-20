@@ -139,7 +139,7 @@ def decode_access_token(token: str) -> Optional[dict]:
     `ver` against `User.token_version`).
     """
     try:
-        payload = jwt.decode(
+        payload: dict[str, Any] = jwt.decode(
             token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM]
         )
     except JWTError as e:

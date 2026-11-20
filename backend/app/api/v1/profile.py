@@ -1,8 +1,8 @@
 from fastapi import APIRouter, Depends, UploadFile, File, HTTPException, Request
 from sqlalchemy.orm import Session
-import os
 from typing import List, Dict, Any
 from app.core.database import get_db
+from app.core.storage import save_image
 from app.models.user import User
 from app.models.bookmark import Bookmark
 from app.schemas.profile import ProfileUpdate, BookmarkCreate, BookmarkResponse
@@ -59,17 +59,13 @@ async def upload_photo(
     file: UploadFile = File(...),
     user_id: int = Depends(get_current_user_id),
 ) -> Dict[str, str]:
-    uploads_dir = os.path.abspath(
-        os.path.join(os.path.dirname(__file__), "../../../uploads")
-    )
-    user_dir = os.path.join(uploads_dir, str(user_id))
-    os.makedirs(user_dir, exist_ok=True)
-    filename = file.filename or "photo.jpg"
-    safe_name = "".join(c for c in filename if c.isalnum() or c in ("-", "_", "."))
-    path = os.path.join(user_dir, safe_name)
-    with open(path, "wb") as f:
-        f.write(await file.read())
-    url = f"/uploads/{user_id}/{safe_name}"
+    """Store a profile photo and return its public URL path.
+
+    Validation and storage live in ``app.core.storage``, which also owns the
+    directory the app serves at ``/uploads`` — this endpoint used to write to a
+    different one, so the URL it returned was always a 404.
+    """
+    url = save_image(await file.read(), file.content_type, str(user_id))
     return {"url": url}
 
 

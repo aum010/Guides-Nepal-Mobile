@@ -188,7 +188,7 @@ class DestinationScreen extends ConsumerWidget {
     return ExperienceCard(
       experience: e,
       onTap: () => context.push('/experience/${e.slug}'),
-      isSaved: favs.isSaved(e.slug),
+      isSaved: favs.isSaved(e.slug, experienceId: e.id),
       onToggleSave: () async {
         if (!ref.read(authControllerProvider).isAuthenticated) {
           context.push('/sign-in');

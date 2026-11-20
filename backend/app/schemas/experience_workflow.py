@@ -1,4 +1,5 @@
 """Schemas for the experience workflow (SOP-GN-EXP-001 / SOP-GN-EXP-002)."""
+
 from typing import Any, List, Literal, Optional
 from pydantic import BaseModel, Field
 
@@ -77,5 +78,7 @@ class ChangeRequestUpdate(BaseModel):
     """Partial edit — only allowed while the change request is draft/changes_requested."""
 
     reason: Optional[str] = Field(default=None, min_length=5, max_length=2000)
-    changes: Optional[List[FieldChange]] = Field(default=None, min_length=1, max_length=30)
+    changes: Optional[List[FieldChange]] = Field(
+        default=None, min_length=1, max_length=30
+    )
     documents: Optional[List[DocumentLink]] = None

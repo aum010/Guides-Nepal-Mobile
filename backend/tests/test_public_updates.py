@@ -11,6 +11,11 @@ properties matter and are covered here:
   ``listing_id``, no email, no traveller details.
 """
 
+from fastapi.testclient import TestClient
+
+from typing import Any
+from sqlalchemy.orm import Session
+
 from datetime import datetime, timedelta
 
 from app.core.security import get_password_hash
@@ -20,7 +25,7 @@ from app.models.user import User
 BASE = "/api/v1/updates"
 
 
-def _make_guide(db_session, email: str, **profile) -> User:
+def _make_guide(db_session: Session, email: str, **profile: Any) -> User:
     user = User(
         email=email,
         hashed_password=get_password_hash("Guide@2024"),
@@ -37,7 +42,7 @@ def _make_guide(db_session, email: str, **profile) -> User:
     return user
 
 
-def _make_listing(db_session, guide: User, **overrides) -> GuideListing:
+def _make_listing(db_session: Session, guide: User, **overrides: Any) -> GuideListing:
     defaults = {
         "guide_user_id": guide.id,
         "title": "Sunrise hike to Sarangkot",
@@ -58,7 +63,9 @@ def _make_listing(db_session, guide: User, **overrides) -> GuideListing:
     return listing
 
 
-def _make_update(db_session, guide: User, **overrides) -> GuideStatusUpdate:
+def _make_update(
+    db_session: Session, guide: User, **overrides: Any
+) -> GuideStatusUpdate:
     defaults = {
         "guide_user_id": guide.id,
         "update_type": "announcement",
@@ -76,8 +83,8 @@ def _make_update(db_session, guide: User, **overrides) -> GuideStatusUpdate:
 
 class TestVisibility:
     def test_active_update_reaches_the_city_the_guide_declared(
-        self, client, db_session
-    ):
+        self, client: TestClient, db_session: Session
+    ) -> None:
         guide = _make_guide(
             db_session,
             "pemba@example.com",
@@ -93,22 +100,26 @@ class TestVisibility:
         ]
         assert payload[0]["guide_name"] == "Pemba Sherpa"
 
-    def test_city_match_ignores_case_and_padding(self, client, db_session):
+    def test_city_match_ignores_case_and_padding(
+        self, client: TestClient, db_session: Session
+    ) -> None:
         guide = _make_guide(db_session, "pemba@example.com", cities=["Pokhara"])
         _make_update(db_session, guide)
 
         assert client.get(f"{BASE}?city=pOkHaRa").json() != []
         assert client.get(f"{BASE}?city=%20Pokhara%20").json() != []
 
-    def test_another_city_does_not_see_the_update(self, client, db_session):
+    def test_another_city_does_not_see_the_update(
+        self, client: TestClient, db_session: Session
+    ) -> None:
         guide = _make_guide(db_session, "pemba@example.com", cities=["Pokhara"])
         _make_update(db_session, guide)
 
         assert client.get(f"{BASE}?city=Bhaktapur").json() == []
 
     def test_guide_without_a_profile_cannot_be_placed_in_a_city(
-        self, client, db_session
-    ):
+        self, client: TestClient, db_session: Session
+    ) -> None:
         """A guide who never onboarded has no cities, so their guide-wide
         update has nowhere public to surface — it stays workspace-only."""
         guide = _make_guide(db_session, "silent@example.com")
@@ -117,8 +128,8 @@ class TestVisibility:
         assert client.get(f"{BASE}?city=Pokhara").json() == []
 
     def test_update_attached_to_a_listing_uses_the_listing_city(
-        self, client, db_session
-    ):
+        self, client: TestClient, db_session: Session
+    ) -> None:
         """The listing's city wins, so a guide's other cities do not pick up
         an update that is really about one specific listing."""
         guide = _make_guide(db_session, "pemba@example.com", cities=["Kathmandu"])
@@ -128,7 +139,9 @@ class TestVisibility:
         assert client.get(f"{BASE}?city=Pokhara").json() != []
         assert client.get(f"{BASE}?city=Kathmandu").json() == []
 
-    def test_update_for_a_paused_listing_is_hidden(self, client, db_session):
+    def test_update_for_a_paused_listing_is_hidden(
+        self, client: TestClient, db_session: Session
+    ) -> None:
         """Pausing a listing hides it from travellers, so its updates stop
         being public too rather than outliving the listing."""
         guide = _make_guide(db_session, "pemba@example.com", cities=["Pokhara"])
@@ -137,7 +150,9 @@ class TestVisibility:
 
         assert client.get(f"{BASE}?city=Pokhara").json() == []
 
-    def test_stale_undated_update_drops_out_of_the_feed(self, client, db_session):
+    def test_stale_undated_update_drops_out_of_the_feed(
+        self, client: TestClient, db_session: Session
+    ) -> None:
         guide = _make_guide(db_session, "pemba@example.com", cities=["Pokhara"])
         _make_update(
             db_session,
@@ -147,7 +162,9 @@ class TestVisibility:
 
         assert client.get(f"{BASE}?city=Pokhara").json() == []
 
-    def test_dated_update_is_kept_through_its_day_then_drops(self, client, db_session):
+    def test_dated_update_is_kept_through_its_day_then_drops(
+        self, client: TestClient, db_session: Session
+    ) -> None:
         guide = _make_guide(db_session, "pemba@example.com", cities=["Pokhara"])
         today = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
         tomorrow = today + timedelta(days=1)
@@ -171,7 +188,9 @@ class TestVisibility:
         messages = [u["message"] for u in client.get(f"{BASE}?city=Pokhara").json()]
         assert messages == ["Sunrise start moves to 5:30 am."]
 
-    def test_booking_notes_never_become_public(self, client, db_session):
+    def test_booking_notes_never_become_public(
+        self, client: TestClient, db_session: Session
+    ) -> None:
         """`booking` updates are written for the guide's own workflow about
         one reservation, so they are never part of a traveller feed."""
         guide = _make_guide(db_session, "pemba@example.com", cities=["Pokhara"])
@@ -188,15 +207,17 @@ class TestVisibility:
         messages = [u["message"] for u in client.get(f"{BASE}?city=Pokhara").json()]
         assert messages == ["Two spots left."]
 
-    def test_guide_can_hide_an_update_without_deleting_it(self, client, db_session):
+    def test_guide_can_hide_an_update_without_deleting_it(
+        self, client: TestClient, db_session: Session
+    ) -> None:
         guide = _make_guide(db_session, "pemba@example.com", cities=["Pokhara"])
         _make_update(db_session, guide, is_active=False)
 
         assert client.get(f"{BASE}?city=Pokhara").json() == []
 
     def test_without_a_city_filter_every_current_update_returns(
-        self, client, db_session
-    ):
+        self, client: TestClient, db_session: Session
+    ) -> None:
         guide = _make_guide(db_session, "pemba@example.com", cities=["Pokhara"])
         second = _make_guide(db_session, "aarati@example.com", cities=["Bhaktapur"])
         _make_update(db_session, guide, message="First update.")
@@ -204,7 +225,9 @@ class TestVisibility:
 
         assert len(client.get(BASE).json()) == 2
 
-    def test_limit_truncates_the_visible_feed(self, client, db_session):
+    def test_limit_truncates_the_visible_feed(
+        self, client: TestClient, db_session: Session
+    ) -> None:
         guide = _make_guide(db_session, "pemba@example.com", cities=["Pokhara"])
         for index in range(5):
             _make_update(db_session, guide, message=f"Update number {index}.")
@@ -217,7 +240,9 @@ class TestVisibility:
 
 
 class TestPrivacy:
-    def test_payload_exposes_no_internal_identifiers(self, client, db_session):
+    def test_payload_exposes_no_internal_identifiers(
+        self, client: TestClient, db_session: Session
+    ) -> None:
         guide = _make_guide(
             db_session,
             "pemba@example.com",
@@ -245,7 +270,9 @@ class TestPrivacy:
         assert "guide_user_id" not in row
         assert "listing_id" not in row
 
-    def test_guide_name_falls_back_to_the_account_name(self, client, db_session):
+    def test_guide_name_falls_back_to_the_account_name(
+        self, client: TestClient, db_session: Session
+    ) -> None:
         """No onboarding display name means the account's own name, then a
         neutral label — never an email address."""
         guide = _make_guide(db_session, "nohandle@example.com")
@@ -261,7 +288,9 @@ class TestPrivacy:
         assert row["guide_name"] == "Nohandle Sherpa"
         assert "nohandle@example.com" not in str(row)
 
-    def test_guide_name_never_falls_back_to_an_email(self, client, db_session):
+    def test_guide_name_never_falls_back_to_an_email(
+        self, client: TestClient, db_session: Session
+    ) -> None:
         guide = _make_guide(db_session, "nohandle@example.com")
         listing = _make_listing(db_session, guide, city="Kathmandu")
         _make_update(
@@ -275,7 +304,9 @@ class TestPrivacy:
         assert row["guide_name"] != "A local guide"  # account name exists
         assert "@" not in row["guide_name"]
 
-    def test_feed_never_leaks_details_of_an_unrelated_booking(self, client, db_session):
+    def test_feed_never_leaks_details_of_an_unrelated_booking(
+        self, client: TestClient, db_session: Session
+    ) -> None:
         guide = _make_guide(db_session, "pemba@example.com", cities=["Pokhara"])
         _make_update(db_session, guide, message="Two spots left on Saturday.")
 
@@ -285,7 +316,9 @@ class TestPrivacy:
 
 
 class TestResponseShape:
-    def test_capacity_fields_surface_for_a_capacity_update(self, client, db_session):
+    def test_capacity_fields_surface_for_a_capacity_update(
+        self, client: TestClient, db_session: Session
+    ) -> None:
         guide = _make_guide(db_session, "pemba@example.com", cities=["Pokhara"])
         _make_update(
             db_session,
@@ -305,7 +338,9 @@ class TestResponseShape:
         assert row["area"] == "Lakeside"
         assert row["listing_title"] is None
 
-    def test_listing_title_resolves_for_a_linked_update(self, client, db_session):
+    def test_listing_title_resolves_for_a_linked_update(
+        self, client: TestClient, db_session: Session
+    ) -> None:
         guide = _make_guide(db_session, "pemba@example.com", cities=["Pokhara"])
         listing = _make_listing(db_session, guide, title="Newari food walk")
         _make_update(db_session, guide, listing_id=listing.id, message="Moved to 5 pm.")
@@ -315,7 +350,9 @@ class TestResponseShape:
         assert row["listing_title"] == "Newari food walk"
         assert row["cities"] == ["Pokhara"]
 
-    def test_guide_wide_update_reports_every_declared_city(self, client, db_session):
+    def test_guide_wide_update_reports_every_declared_city(
+        self, client: TestClient, db_session: Session
+    ) -> None:
         """A guide-wide note spans all the cities the guide works in, so the
         feed carries every one rather than an arbitrary first pick."""
         guide = _make_guide(
@@ -328,7 +365,9 @@ class TestResponseShape:
         row = client.get(f"{BASE}?city=Pokhara").json()[0]
         assert row["cities"] == ["Pokhara", "Kathmandu"]
 
-    def test_blank_cities_are_dropped(self, client, db_session):
+    def test_blank_cities_are_dropped(
+        self, client: TestClient, db_session: Session
+    ) -> None:
         guide = _make_guide(
             db_session,
             "pemba@example.com",
@@ -339,6 +378,8 @@ class TestResponseShape:
         row = client.get(f"{BASE}?city=Pokhara").json()[0]
         assert row["cities"] == ["Pokhara", "Bhaktapur"]
 
-    def test_feed_is_reachable_without_authentication(self, client, db_session):
+    def test_feed_is_reachable_without_authentication(
+        self, client: TestClient, db_session: Session
+    ) -> None:
         """The endpoint is traveller-facing, so no bearer token is required."""
         assert client.get(BASE).status_code == 200

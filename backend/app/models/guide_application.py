@@ -1,5 +1,9 @@
-from sqlalchemy import Column, Integer, String, DateTime
+from datetime import datetime
+
+from sqlalchemy import DateTime, Integer, String
+from sqlalchemy.orm import Mapped, mapped_column
 from sqlalchemy.sql import func
+
 from app.core.database import Base
 
 
@@ -14,15 +18,21 @@ class GuideApplication(Base):
 
     __tablename__ = "guide_applications"
 
-    id = Column(Integer, primary_key=True, index=True)
-    full_name = Column(String, nullable=True)
-    email = Column(String, index=True, nullable=True)
-    phone = Column(String, nullable=True)
-    city = Column(String, nullable=True)
-    region = Column(String, nullable=True)
-    nin_number = Column(String, nullable=True)
-    documents = Column(String, nullable=True)  # file names / summary
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    full_name: Mapped[str | None] = mapped_column(String, nullable=True)
+    email: Mapped[str | None] = mapped_column(String, index=True, nullable=True)
+    phone: Mapped[str | None] = mapped_column(String, nullable=True)
+    city: Mapped[str | None] = mapped_column(String, nullable=True)
+    region: Mapped[str | None] = mapped_column(String, nullable=True)
+    nin_number: Mapped[str | None] = mapped_column(String, nullable=True)
+    documents: Mapped[str | None] = mapped_column(
+        String, nullable=True
+    )  # file names / summary
     # pending / approved / rejected
-    status = Column(String, default="pending")
-    created_at = Column(DateTime(timezone=True), server_default=func.now())
-    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+    status: Mapped[str | None] = mapped_column(String, default="pending")
+    created_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
+    updated_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), onupdate=func.now()
+    )

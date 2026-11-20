@@ -64,6 +64,10 @@ class _FakeApiClient extends ApiClient {
   final List<Map<String, dynamic>> availabilityRequests = [];
   final List<Map<String, dynamic>> created = [];
 
+  /// What `GET /experiences/{slug}` answers; a published guide listing adds
+  /// `listingId`, `maxGuests` and `availableSpots`.
+  Map<String, dynamic> experienceResponse = _experienceJson;
+
   /// Success payload for `GET /bookings/availability`.
   Map<String, dynamic> availabilityResponse = {'available': true, 'status': 'free'};
   ApiException? availabilityError;
@@ -81,7 +85,7 @@ class _FakeApiClient extends ApiClient {
   }) async {
     if (path == '/experiences/$_slug') {
       fetchedExperiences.add(path);
-      return _ok(_experienceJson);
+      return _ok(experienceResponse);
     }
     if (path == '/bookings/availability') {
       availabilityRequests.add(Map.of(query ?? const {}));
@@ -389,6 +393,69 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('trips-screen'), findsOneWidget);
+  });
+
+  testWidgets('availability is asked for this experience, not the catalogue',
+      (tester) async {
+    await pumpBooking(tester);
+    await tester.pumpAndSettle();
+
+    await pickToday(tester);
+
+    // Without this the server answers for the single fallback guide's
+    // calendar and a listing's own seats are never checked.
+    expect(fake.availabilityRequests.single['experience_id'], 7);
+  });
+
+  testWidgets('a sold-out listing says the seats are gone', (tester) async {
+    await pumpBooking(
+      tester,
+      configure: (f) => f.availabilityResponse = {
+        'available': false,
+        'status': 'full',
+        'spots_left': 0,
+      },
+    );
+    await tester.pumpAndSettle();
+
+    await pickToday(tester);
+
+    expect(
+      find.text(
+          'This trip has no seats left for the moment. Please try another experience.'),
+      findsOneWidget,
+    );
+    expect(find.text(AppStrings.checkAvailability), findsOneWidget);
+    await drainSnackbars(tester);
+  });
+
+  testWidgets('the guest stepper stops at the seats the listing has left',
+      (tester) async {
+    await pumpBooking(
+      tester,
+      configure: (f) => f.experienceResponse = {
+        ..._experienceJson,
+        'listingId': 9,
+        'maxGuests': 2,
+        'availableSpots': 2,
+      },
+    );
+    await tester.pumpAndSettle();
+
+    await pickToday(tester);
+    await tapContinue(tester);
+
+    expect(find.text('2 guests left on this trip.'), findsOneWidget);
+
+    // Two is the whole trip: the stepper refuses a third guest here rather
+    // than letting the server reject the request at the last step.
+    await tester.tap(find.byIcon(Icons.add));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byIcon(Icons.add));
+    await tester.pumpAndSettle();
+
+    expect(find.text('2'), findsOneWidget);
+    expect(find.text('3'), findsNothing);
   });
 
   testWidgets('confirmation "Keep exploring" goes to explore', (tester) async {

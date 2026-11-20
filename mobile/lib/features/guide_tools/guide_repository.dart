@@ -1,3 +1,4 @@
+import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/network/api_client.dart';
@@ -65,6 +66,37 @@ class GuideRepository {
 
   Future<void> deleteListing(int id) async {
     await _client.delete('/guide/listings/$id');
+  }
+
+  /// `POST /guide/listings/{id}/photo` — the photo travellers see.
+  ///
+  /// Bytes rather than a file path, so the same call works on web. The
+  /// content type is part of the contract: the server rejects anything that
+  /// is not a JPEG/PNG/WebP and checks the bytes, not the name.
+  Future<GuideListing> uploadListingPhoto(
+    int id, {
+    required List<int> bytes,
+    required String filename,
+    required String contentType,
+  }) async {
+    final form = FormData.fromMap({
+      'file': MultipartFile.fromBytes(
+        bytes,
+        filename: filename,
+        contentType: DioMediaType.parse(contentType),
+      ),
+    });
+    final res = await _client.post('/guide/listings/$id/photo', data: form);
+    return GuideListing.fromJson((res.data as Map).cast<String, dynamic>());
+  }
+
+  /// Clears the photo (`PATCH` with an explicit null).
+  Future<GuideListing> removeListingPhoto(int id) async {
+    final res = await _client.patch(
+      '/guide/listings/$id',
+      data: {'hero_image': null},
+    );
+    return GuideListing.fromJson((res.data as Map).cast<String, dynamic>());
   }
 
   /// `GET /guide/onboarding` wraps the profile in `{onboarding, completed}`.

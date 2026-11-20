@@ -12,9 +12,14 @@ codebase canonical role is ``traveler`` (American English, see
 ``app/core/roles.py`` -> ``TRAVELER = "traveler"``). This script seeds the
 canonical ``traveler`` role, which is what the API / frontend expect.
 """
+
 from app.core.database import Base, engine, SessionLocal
 from app.core.roles import GUIDE, TRAVELER
-from app.core.security import get_password_hash, validate_password_strength, verify_password
+from app.core.security import (
+    get_password_hash,
+    validate_password_strength,
+    verify_password,
+)
 from app import models  # noqa: F401  (register all models so create_all sees them)
 from app.models.user import User
 
@@ -78,7 +83,10 @@ def main() -> None:
                 )
                 db.commit()
                 created = db.query(User).filter(User.email == u["email"]).first()
-                ok = verify_password(u["password"], str(created.hashed_password))
+                assert (
+                    created is not None
+                ), f"seed user {u['email']} vanished after insert"
+                ok = verify_password(u["password"], created.hashed_password)
                 print(
                     f"  [CREATED] {u['email']:30s} | role: {u['role']:10s} "
                     f"| password: {u['password']:15s} | verified: {ok}"

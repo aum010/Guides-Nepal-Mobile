@@ -6,13 +6,18 @@ import '../../app/theme/app_spacing.dart';
 import '../../app/theme/app_typography.dart';
 import '../../l10n/app_strings.dart';
 import '../../shared/widgets/app_button.dart';
+import '../../shared/widgets/app_logo.dart';
 
 /// Intro screen shown before sign-in. Gives a first-time traveler the
 /// product promise and a clear path to the two account actions.
-class OnboardingScreen extends StatelessWidget {
+///
+/// The three slides are a pager, so the pager has to say so: without dots a
+/// traveler sees one promise and never learns there are two more, and a swipe
+/// that happens by accident is the only way to discover them.
+class OnboardingScreen extends StatefulWidget {
   const OnboardingScreen({super.key});
 
-  static const _slides = <_OnboardingSlide>[
+  static const slides = <_OnboardingSlide>[
     _OnboardingSlide(
       icon: Icons.explore_outlined,
       title: 'Find your Nepal.',
@@ -34,7 +39,23 @@ class OnboardingScreen extends StatelessWidget {
   ];
 
   @override
+  State<OnboardingScreen> createState() => _OnboardingScreenState();
+}
+
+class _OnboardingScreenState extends State<OnboardingScreen> {
+  final _controller = PageController();
+  int _index = 0;
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
+    const slides = OnboardingScreen.slides;
+
     return Scaffold(
       backgroundColor: AppColors.background,
       body: SafeArea(
@@ -43,8 +64,10 @@ class OnboardingScreen extends StatelessWidget {
           child: Column(
             children: [
               Row(
-                mainAxisAlignment: MainAxisAlignment.end,
                 children: [
+                  // First screen a traveler sees: the brand, then the choices.
+                  const AppLogoLockup(width: 108),
+                  const Spacer(),
                   // Public help pages are reachable before sign-in too.
                   TextButton(
                     onPressed: () => context.push('/faq'),
@@ -58,8 +81,10 @@ class OnboardingScreen extends StatelessWidget {
               ),
               Expanded(
                 child: PageView(
+                  controller: _controller,
+                  onPageChanged: (index) => setState(() => _index = index),
                   children: [
-                    for (final slide in _slides)
+                    for (final slide in slides)
                       Center(
                         child: Column(
                           mainAxisAlignment: MainAxisAlignment.center,
@@ -86,8 +111,8 @@ class OnboardingScreen extends StatelessWidget {
                                   horizontal: AppSpacing.x4),
                               child: Text(
                                 slide.body,
-                                style: AppTypography.body.copyWith(
-                                    color: AppColors.textSecondary),
+                                style: AppTypography.body
+                                    .copyWith(color: AppColors.textSecondary),
                                 textAlign: TextAlign.center,
                               ),
                             ),
@@ -97,6 +122,18 @@ class OnboardingScreen extends StatelessWidget {
                   ],
                 ),
               ),
+              _PageDots(
+                count: slides.length,
+                index: _index,
+                onSelected: (index) => _controller.animateToPage(
+                  index,
+                  duration: MediaQuery.disableAnimationsOf(context)
+                      ? Duration.zero
+                      : const Duration(milliseconds: 240),
+                  curve: Curves.easeOut,
+                ),
+              ),
+              const SizedBox(height: AppSpacing.x5),
               AppButton(
                 label: AppStrings.signUp,
                 onPressed: () => context.go('/sign-up'),
@@ -110,6 +147,62 @@ class OnboardingScreen extends StatelessWidget {
             ],
           ),
         ),
+      ),
+    );
+  }
+}
+
+/// Position indicator for the pager. Tapping a dot moves the pager, and each
+/// dot carries a 44 dp hit target even though the mark itself is 6 dp.
+class _PageDots extends StatelessWidget {
+  const _PageDots({
+    required this.count,
+    required this.index,
+    required this.onSelected,
+  });
+
+  final int count;
+  final int index;
+  final ValueChanged<int> onSelected;
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      container: true,
+      label: 'Page ${index + 1} of $count',
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          for (var i = 0; i < count; i++)
+            Semantics(
+              button: true,
+              selected: i == index,
+              label: 'Page ${i + 1}',
+              excludeSemantics: true,
+              child: GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                onTap: () => onSelected(i),
+                child: SizedBox(
+                  height: AppSpacing.minTouchTarget,
+                  child: Center(
+                    child: AnimatedContainer(
+                      duration: const Duration(milliseconds: 220),
+                      margin:
+                          const EdgeInsets.symmetric(horizontal: AppSpacing.x1),
+                      width: i == index ? 20 : 6,
+                      height: 6,
+                      decoration: BoxDecoration(
+                        color:
+                            i == index ? AppColors.secondary : AppColors.border,
+                        borderRadius:
+                            BorderRadius.circular(AppSpacing.radiusPill),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+        ],
       ),
     );
   }

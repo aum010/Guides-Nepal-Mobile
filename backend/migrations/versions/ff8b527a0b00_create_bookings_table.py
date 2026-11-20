@@ -60,9 +60,7 @@ def upgrade() -> None:
         op.f("ix_bookings_guide_user_id"), "bookings", ["guide_user_id"], unique=False
     )
     op.create_index(op.f("ix_bookings_date"), "bookings", ["date"], unique=False)
-    op.create_index(
-        op.f("ix_bookings_status"), "bookings", ["status"], unique=False
-    )
+    op.create_index(op.f("ix_bookings_status"), "bookings", ["status"], unique=False)
 
 
 def downgrade() -> None:
@@ -73,4 +71,3 @@ def downgrade() -> None:
     op.drop_index(op.f("ix_bookings_user_id"), table_name="bookings")
     op.drop_index(op.f("ix_bookings_id"), table_name="bookings")
     op.drop_table("bookings")
-

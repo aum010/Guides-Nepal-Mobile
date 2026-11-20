@@ -321,4 +321,55 @@ void main() {
       expect(fake.postedPaths, isEmpty);
     });
   });
+
+  group('unread badge', () {
+    Future<void> pumpBadged(
+      WidgetTester tester, {
+      required int selectedIndex,
+      required int unread,
+    }) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            extendBody: true,
+            bottomNavigationBar: FloatingNavBar(
+              selectedIndex: selectedIndex,
+              onDestinationSelected: (_) {},
+              items: [
+                for (final item in items)
+                  FloatingNavItem(
+                    icon: item.icon,
+                    selectedIcon: item.selectedIcon,
+                    label: item.label,
+                    badgeCount:
+                        item.label == AppStrings.navInbox ? unread : 0,
+                  ),
+              ],
+            ),
+            body: const SizedBox.shrink(),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+    }
+
+    testWidgets('shows the count on an inactive tab, nothing at zero',
+        (tester) async {
+      await pumpBadged(tester, selectedIndex: 0, unread: 4);
+      expect(find.text('4'), findsOneWidget);
+
+      await pumpBadged(tester, selectedIndex: 0, unread: 0);
+      expect(find.text('0'), findsNothing);
+    });
+
+    testWidgets('caps large counts and rides the raised badge when selected',
+        (tester) async {
+      await pumpBadged(tester, selectedIndex: 0, unread: 12);
+      expect(find.text('9+'), findsOneWidget);
+
+      // Selecting Inbox must not hide how much is waiting.
+      await pumpBadged(tester, selectedIndex: 3, unread: 12);
+      expect(find.text('9+'), findsOneWidget);
+    });
+  });
 }

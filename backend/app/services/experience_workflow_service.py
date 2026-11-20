@@ -11,8 +11,9 @@ The gate itself is enforced in the API layer via
 transitions, ownership, and data validation so a mis-sequenced call can never
 bypass the SOP.
 """
+
 from datetime import datetime, timezone
-from typing import List, Optional
+from typing import Any, List, Optional
 
 from fastapi import HTTPException
 from sqlalchemy.orm import Session
@@ -40,6 +41,7 @@ from app.schemas.experience_workflow import (
     ExperienceProposalCreate,
     ExperienceProposalUpdate,
 )
+from app.services.catalog_service import CatalogService
 
 # Fields a change request may touch, mapped to (min, max) length rules.
 TEXT_RULES = {
@@ -53,7 +55,12 @@ TEXT_RULES = {
     "difficulty": (2, 40),
 }
 VALID_CATEGORIES = {"trekking", "tour", "specialized"}
-CHANGEABLE_FIELDS = frozenset(TEXT_RULES) | {"category", "price", "max_guests", "is_active"}
+CHANGEABLE_FIELDS = frozenset(TEXT_RULES) | {
+    "category",
+    "price",
+    "max_guests",
+    "is_active",
+}
 
 # SOP-GN-EXP-002 §4: "Minor" = editorial only. Everything else is Material.
 MINOR_FIELDS = frozenset({"description"})
@@ -131,7 +138,7 @@ def _change_request_to_dict(
     }
 
 
-def _validate_change(listing: GuideListing, field: str, proposed) -> object:
+def _validate_change(listing: GuideListing, field: str, proposed: Any) -> object:
     """Coerce and validate one proposed value against the platform rules."""
     field = (field or "").strip().lower()
     if field not in CHANGEABLE_FIELDS:
@@ -141,44 +148,57 @@ def _validate_change(listing: GuideListing, field: str, proposed) -> object:
         )
     if field in TEXT_RULES:
         if not isinstance(proposed, str) or not proposed.strip():
-            raise HTTPException(status_code=422, detail=f"Field '{field}' must be a non-empty string")
-        value = proposed.strip()
+            raise HTTPException(
+                status_code=422, detail=f"Field '{field}' must be a non-empty string"
+            )
+        text = proposed.strip()
         low, high = TEXT_RULES[field]
-        if len(value) < low or len(value) > high:
+        if len(text) < low or len(text) > high:
             raise HTTPException(
                 status_code=422,
                 detail=f"Field '{field}' must be between {low} and {high} characters",
             )
-        return value
+        return text
     if field == "category":
         if proposed not in VALID_CATEGORIES:
             raise HTTPException(
-                status_code=422, detail=f"category must be one of {sorted(VALID_CATEGORIES)}"
+                status_code=422,
+                detail=f"category must be one of {sorted(VALID_CATEGORIES)}",
             )
         return proposed
     if field == "price":
         try:
-            value = float(proposed)
+            price = float(proposed)
         except (TypeError, ValueError):
             raise HTTPException(status_code=422, detail="price must be a number")
-        if value < 0:
+        if price < 0:
             raise HTTPException(status_code=422, detail="price cannot be negative")
-        return value
+        return price
     if field == "max_guests":
         try:
-            value = int(proposed)
+            guests = int(proposed)
         except (TypeError, ValueError):
-            raise HTTPException(status_code=422, detail="max_guests must be a whole number")
-        if value < 1 or value > 100:
-            raise HTTPException(status_code=422, detail="max_guests must be between 1 and 100")
-        if value < (listing.booked_guests or 0):
-            raise HTTPException(status_code=422, detail="max_guests cannot be below booked guests")
-        return value
+            raise HTTPException(
+                status_code=422, detail="max_guests must be a whole number"
+            )
+        if guests < 1 or guests > 100:
+            raise HTTPException(
+                status_code=422, detail="max_guests must be between 1 and 100"
+            )
+        if guests < (listing.booked_guests or 0):
+            raise HTTPException(
+                status_code=422, detail="max_guests cannot be below booked guests"
+            )
+        return guests
     if field == "is_active":
         if not isinstance(proposed, bool):
-            raise HTTPException(status_code=422, detail="is_active must be true or false")
+            raise HTTPException(
+                status_code=422, detail="is_active must be true or false"
+            )
         return proposed
-    raise HTTPException(status_code=422, detail=f"Field '{field}' cannot be changed")  # pragma: no cover
+    raise HTTPException(
+        status_code=422, detail=f"Field '{field}' cannot be changed"
+    )  # pragma: no cover
 
 
 class ExperienceWorkflowService:
@@ -256,13 +276,13 @@ class ExperienceWorkflowService:
     def withdraw_proposal(self, guide_id: int, proposal_id: int) -> dict:
         row = self.get_proposal(guide_id, proposal_id)
         if row.status != STATUS_SUBMITTED:
-            raise HTTPException(status_code=422, detail="Only a submitted proposal can be withdrawn")
+            raise HTTPException(
+                status_code=422, detail="Only a submitted proposal can be withdrawn"
+            )
         row.status = STATUS_CANCELLED
         self.db.commit()
         self.db.refresh(row)
         return _proposal_to_dict(row)
-
-
 
     def publish_proposal(self, guide_id: int, proposal_id: int) -> dict:
         """SOP-GN-EXP-001 Step 7a: approved → live listing (within 2 business days)."""
@@ -272,9 +292,14 @@ class ExperienceWorkflowService:
                 status_code=422, detail="Only an approved proposal can be published"
             )
         if row.listing_id:
-            raise HTTPException(status_code=422, detail="Proposal was already published")
+            raise HTTPException(
+                status_code=422, detail="Proposal was already published"
+            )
         listing = GuideListing(
             guide_user_id=guide_id,
+            # Publishing makes the listing live in the public catalogue, so it
+            # needs the stable URL segment every catalogue row has.
+            slug=CatalogService(self.db).unique_slug(row.title),
             title=row.title,
             category=row.category,
             city=row.city,
@@ -312,7 +337,8 @@ class ExperienceWorkflowService:
         notes = (payload.notes or "").strip()
         if payload.action in {"request_changes", "reject"} and not notes:
             raise HTTPException(
-                status_code=422, detail="Notes are required for 'request_changes' and 'reject'"
+                status_code=422,
+                detail="Notes are required for 'request_changes' and 'reject'",
             )
         if payload.action == "approve":
             row.status = STATUS_APPROVED
@@ -341,17 +367,22 @@ class ExperienceWorkflowService:
     # ------------------------------------------------------------------ #
     # Change requests (SOP-GN-EXP-002)                                   #
     # ------------------------------------------------------------------ #
-    def list_change_requests(self, guide_id: int, status: Optional[str] = None) -> List[dict]:
-        query = self.db.query(ExperienceChangeRequest, GuideListing).join(
-            GuideListing,
-            ExperienceChangeRequest.listing_id == GuideListing.id,
-            isouter=True,
-        ).filter(ExperienceChangeRequest.guide_user_id == guide_id)
+    def list_change_requests(
+        self, guide_id: int, status: Optional[str] = None
+    ) -> List[dict]:
+        query = (
+            self.db.query(ExperienceChangeRequest, GuideListing)
+            .join(
+                GuideListing,
+                ExperienceChangeRequest.listing_id == GuideListing.id,
+                isouter=True,
+            )
+            .filter(ExperienceChangeRequest.guide_user_id == guide_id)
+        )
         if status:
             query = query.filter(ExperienceChangeRequest.status == status)
         rows = query.order_by(ExperienceChangeRequest.created_at.desc()).all()
         return [_change_request_to_dict(row, listing=listing) for row, listing in rows]
-
 
     def get_change_request(self, guide_id: int, cr_id: int) -> ExperienceChangeRequest:
         row = (
@@ -384,7 +415,7 @@ class ExperienceWorkflowService:
             raise HTTPException(status_code=404, detail="Listing not found")
         return listing
 
-    def _build_changes(self, listing: GuideListing, changes) -> list:
+    def _build_changes(self, listing: GuideListing, changes: Any) -> list:
         """Snapshot current values server-side and validate every proposed value.
 
         ``changes`` items may be ``FieldChange`` models or plain dicts.
@@ -398,7 +429,9 @@ class ExperienceWorkflowService:
                 field, proposed = change.field, change.proposed
             field = (field or "").strip().lower()
             if field in seen:
-                raise HTTPException(status_code=422, detail=f"Field '{field}' listed more than once")
+                raise HTTPException(
+                    status_code=422, detail=f"Field '{field}' listed more than once"
+                )
             seen.add(field)
             proposed = _validate_change(listing, field, proposed)
             current = getattr(listing, field)
@@ -409,7 +442,9 @@ class ExperienceWorkflowService:
                 )
             built.append({"field": field, "current": current, "proposed": proposed})
         if not built:
-            raise HTTPException(status_code=422, detail="At least one real change is required")
+            raise HTTPException(
+                status_code=422, detail="At least one real change is required"
+            )
         return built
 
     def create_change_request(self, guide: User, payload: ChangeRequestCreate) -> dict:
@@ -461,12 +496,12 @@ class ExperienceWorkflowService:
         self.db.refresh(row)
         return _change_request_to_dict(row, listing=listing)
 
-
     def submit_change_request(self, guide_id: int, cr_id: int) -> dict:
         row = self.get_change_request(guide_id, cr_id)
         if row.status not in EDITABLE_STATUSES:
             raise HTTPException(
-                status_code=422, detail=f"A {row.status} change request cannot be submitted"
+                status_code=422,
+                detail=f"A {row.status} change request cannot be submitted",
             )
         listing = self._get_owned_listing(guide_id, row.listing_id)
         row.status = STATUS_SUBMITTED
@@ -484,7 +519,8 @@ class ExperienceWorkflowService:
         row = self.get_change_request(guide_id, cr_id)
         if row.status != STATUS_SUBMITTED:
             raise HTTPException(
-                status_code=422, detail="Only a submitted change request can be withdrawn"
+                status_code=422,
+                detail="Only a submitted change request can be withdrawn",
             )
         listing = self._get_owned_listing(guide_id, row.listing_id)
         row.status = STATUS_CANCELLED
@@ -508,7 +544,9 @@ class ExperienceWorkflowService:
             field, proposed = change["field"], change["proposed"]
             # Bookings may have grown since submission — re-check the capacity guard.
             if field == "max_guests" and int(proposed) < (listing.booked_guests or 0):
-                raise HTTPException(status_code=422, detail="max_guests cannot be below booked guests")
+                raise HTTPException(
+                    status_code=422, detail="max_guests cannot be below booked guests"
+                )
             setattr(listing, field, proposed)
         row.status = STATUS_APPLIED
         row.applied_at = _now()
@@ -534,7 +572,8 @@ class ExperienceWorkflowService:
         notes = (payload.notes or "").strip()
         if payload.action in {"request_changes", "reject"} and not notes:
             raise HTTPException(
-                status_code=422, detail="Notes are required for 'request_changes' and 'reject'"
+                status_code=422,
+                detail="Notes are required for 'request_changes' and 'reject'",
             )
         if payload.action == "approve":
             row.status = STATUS_APPROVED
@@ -569,4 +608,3 @@ class ExperienceWorkflowService:
             _change_request_to_dict(row, guide=guide, listing=listing)
             for row, guide, listing in rows
         ]
-

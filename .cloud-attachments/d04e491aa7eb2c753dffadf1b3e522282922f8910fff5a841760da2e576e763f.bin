@@ -1,0 +1,2412 @@
+# GUIDES NEPAL — UPDATED MOBILE MASTER PROMPT
+## Flutter + Dart | Native iOS and Android | Existing Monorepo Integration
+
+**This is the updated, consolidated version of the mobile master prompt.** It uses the current supplied `README.md` (version 1.3.0, last updated 2026-10-08) as the documented baseline and updates the earlier prompt wherever the README changes or clarifies the platform. The existing repository code remains the final authority for what is actually implemented.
+
+> **Agent instruction:** Read this entire prompt and the repository's current `README.md` before changing files. Then inspect the actual code. Do not begin by generating screens. The mobile application is a new Flutter client for BOTH Android and iOS; it is not a replacement for the existing website or dashboard.
+
+---
+
+# A. UPDATED README ALIGNMENT — MANDATORY OVERRIDES
+
+This section has priority over any conflicting wording in the earlier prompt below. If the repository's actual code differs from the README, verify it, record the discrepancy, and follow the smallest safe, evidence-based implementation.
+
+## A1. Product and repository boundaries
+
+- Product: **Guides Nepal**, a travel and local-experience marketplace for travelers, local guides, and hosts.
+- New app location: `mobile/` inside the existing monorepo.
+- Mobile framework/language: **Flutter + Dart**, one primary codebase targeting **Android and iOS**.
+- Existing public web frontend: React 18 + TypeScript + Vite + Tailwind CSS, documented at development port `5175`.
+- Existing staff dashboard: React + TypeScript + Vite, documented at development port `5176`.
+- Existing backend: Python + FastAPI, with SQLAlchemy and Alembic.
+- Database: SQLite for local development; PostgreSQL for production. The README's deployment section identifies Supabase PostgreSQL via `DATABASE_URL`.
+- Existing AI providers: Ollama or OpenAI, selected through backend configuration.
+- Documented deployment: Vercel for web frontend/dashboard and Render for backend; Docker Compose is also documented for local development.
+- Do not move, replace, reinitialize, or redesign the website, dashboard, backend, database, migrations, or existing test suites merely to add Flutter.
+
+## A2. Current role model — use this, not any obsolete hierarchy
+
+The current README explicitly states that the former **Super Admin** role was removed. **Admin is the highest role and has full system access.** Do not create or assume a Super Admin role.
+
+The documented roles are:
+
+| Role | Where it operates | Expected scope documented in README |
+|---|---|---|
+| `admin` | Staff dashboard | Full system access: users, hosts, guides, content, host applications, support tickets, analytics, revenue reports, role hierarchy and settings |
+| `content-manager` | Staff dashboard | Pages, blog posts, guide content, media uploads and SEO |
+| `regional-head` | Staff dashboard | Host applications and regional information for assigned region |
+| `customer-support` | Staff dashboard | Support tickets, customer inquiries and FAQ management |
+| `host` | Staff dashboard | Own tours/listings, bookings, earnings and performance; host approval is required before full dashboard access |
+| `guide` | Public website's guide workspace, not staff dashboard | Guide onboarding, own listings, bookings/requests, capacity and guide updates, as permitted by guide APIs |
+| `traveler` | Public website / traveler experience, not staff dashboard | Browse, search, save, book, manage profile/trips and use supported traveler capabilities |
+
+Important distinctions:
+
+1. There are **five staff dashboard consoles**: admin, content-manager, regional-head, customer-support and host.
+2. `guide` is a backend/API role and uses the **public frontend's guide dashboard** (documented route `/guide/dashboard`), not the staff dashboard.
+3. `traveler` uses the public traveler experience and has no staff dashboard console.
+4. The README says `dashboard/src/utils/roles.ts` deliberately rejects `guide` and `traveler` from staff dashboard login.
+5. `backend/app/core/roles.py` is the source of truth for role policy. API guards resolve through `has_access()`; admin is implicitly authorized for all guards, while other roles must be explicitly named.
+6. The mobile app must preserve these role boundaries. Do not route guides to an empty staff console, do not expose staff administration to travelers/guides, and do not assume hosts and guides are interchangeable.
+7. Display only the authenticated user's capabilities supported by the backend. UI hiding is not a substitute for server authorization.
+
+## A3. Registration and elevated role assignment
+
+The README documents the following server-side policy:
+
+- Public self-registration is allow-listed to `traveler` (default public account) and `host`.
+- A public registration request attempting to create `guide`, `admin`, `content-manager`, `regional-head`, or `customer-support` is rejected by the backend with validation error (`422`).
+- Elevated roles are assigned by an admin through the verified admin role-assignment workflow or by development seed scripts.
+- Host accounts must be approved by an admin or regional head before full host dashboard access.
+- Never trust a role sent by the mobile client. Never allow a client-side role dropdown to grant privileged access. Never bypass host approval.
+- Inspect current schemas, API validators, and tests before implementing registration or role transitions.
+
+## A4. Guide workflow documented in the current README
+
+The README describes a guide workflow on the public frontend:
+
+- `/guide/onboarding`: four-step onboarding covering expertise areas, cities/languages, profile/default maximum guest capacity, and review.
+- `/guide/dashboard`: guide stats, booking requests (accept/decline/complete), real-time updates and capacity overview; documented auto-refresh is every 30 seconds.
+- `/guide/listings`: manage own listings and maximum guest capacity.
+- `/guide/listings/new`: create a listing using a multi-step wizard.
+- `/guide/listings/:id/edit`: edit a listing.
+- `/guide/bookings`: guide booking-request list.
+- Guide listing types documented: trekking route, travel tour, specialized activity.
+- Listing fields documented include title/place, description, itinerary, meeting point, duration, difficulty, price and maximum guests.
+- Capacity is documented as 1–100. Lowering capacity below already-booked guests is rejected with `422`; booked counts must remain within `0…max_guests`.
+- Guide live-update types documented: `availability`, `capacity`, `booking`, `schedule`, `announcement`.
+- Documented guide API family includes:
+  - `GET /api/v1/guide/dashboard`
+  - `GET/PUT /api/v1/guide/onboarding`
+  - `GET/POST /api/v1/guide/listings`
+  - `PATCH/DELETE /api/v1/guide/listings/{id}`
+  - `PATCH /api/v1/guide/listings/{id}/capacity`
+  - `GET/POST /api/v1/guide/status`
+  - `DELETE /api/v1/guide/status/{id}`
+  - `PATCH /api/v1/guide/bookings/{id}`
+- These routes are documented discovery points only. Confirm actual route registration, payloads, response schemas, ownership checks, and status transitions in code before implementing a client.
+
+The mobile guide workspace should adapt these existing workflows to mobile, not reproduce desktop page layouts. Use the current backend's actual role/capability rules.
+
+## A5. Destinations and marketplace content
+
+The README identifies five principal city experiences:
+
+1. Kathmandu
+2. Pokhara
+3. Lalitpur
+4. Bhaktapur
+5. Bharatpur
+
+The platform also documents experience categories such as Cultural, Food Tours, Cooking Classes, Outdoor Activities and Wellness. Inspect actual data and APIs for the complete supported set; do not assume the list is exhaustive.
+
+The existing website has a centralized frontend search index at `frontend/src/utils/searchIndex.ts`, combining experiences, guides, cities and categories, with word-by-word filtering and smart scoring. This is a **frontend TypeScript implementation**, not automatically a mobile-compatible or production-wide search API. Inspect whether a backend search endpoint exists. Do not copy TypeScript logic into Dart as a substitute for the authoritative catalogue or invent endpoints. If a suitable endpoint is missing, document the gap and propose the smallest compatible backend extension.
+
+## A6. Existing AI assistant — Maila Dai
+
+Maila Dai is the platform's named AI travel assistant. The README documents:
+
+- `POST /api/v1/ai/chat` — non-streaming chat.
+- `POST /api/v1/ai/chat/stream` — streaming chat.
+- Configurable AI provider: `AI_PROVIDER=auto`, `ollama`, or `openai`.
+- Ollama configuration documented through `OLLAMA_URL` and `OLLAMA_MODEL`; OpenAI requires a server-side `OPENAI_API_KEY`.
+- Documented assistant context includes Kathmandu-aware travel help such as weather, local time (UTC+05:45), food, culture and adventure.
+
+Before coding, inspect the actual request/response schemas and streaming protocol. Keep all provider secrets on the backend. Do not claim the assistant has live access to prices, availability, booking status, or other platform data unless those sources are actually connected and authorized. Preserve a non-streaming fallback only if the existing backend supports it.
+
+## A7. Authentication, sessions and account safety
+
+The README documents JWT authentication, bcrypt password hashing, a default access-token lifetime of 30 minutes, and refresh-token lifetime of 7 days. These are documented defaults, not permission to hardcode assumptions. Inspect the actual token response, refresh flow, logout behavior, expiration handling, and auth dependencies.
+
+- API family documented: `/api/v1/auth/*`.
+- Google and Facebook OAuth configuration is optional. The README says OAuth start endpoints return `500` until credentials are configured; do not show an OAuth button as functional unless configured and verified.
+- Password reset uses optional Supabase configuration. Without the required configuration, email password reset is unavailable; communicate this honestly in development.
+- The README documents production hard-fails for default `SECRET_KEY`, non-HTTPS CORS origins, and development seeding. Never weaken these safeguards.
+- Never include development credentials, secrets, private keys, or server-only API keys in the mobile app, logs, screenshots, documentation intended for production, or version control.
+- Seed users/passwords in the README are development-only. Do not bake them into production UI or automatically use them to authenticate.
+- Use secure token storage and backend authorization. Clear sensitive local state on logout where appropriate.
+
+## A8. Existing API families — verify exact contracts
+
+The README lists these API families under `/api/v1`:
+
+- `/auth/*`
+- `/bookings/*`
+- `/profile/*`
+- `/ai/chat` and `/ai/chat/stream`
+- `/admin/*`
+- `/content/*`
+- `/operations/*`
+- `/host/*`
+- `/guide/*`
+- `/host-applications/*`
+
+The presence of an API family does not prove every desired endpoint exists. Inspect FastAPI routers, Pydantic schemas, dependencies, services, SQLAlchemy models, migrations, and tests. Record exact methods, paths, parameters, request/response fields, error formats, pagination, file-upload rules, and role guards. Do not invent API contracts.
+
+## A9. Database and deployment alignment
+
+- Reuse the existing backend and database. The mobile client must never connect directly to SQLite, PostgreSQL, or Supabase database credentials.
+- The backend remains authoritative for users, roles, prices, capacity, bookings, payments, and business rules.
+- Production database is documented as PostgreSQL hosted through Supabase using server-side `DATABASE_URL`; SQLite is for development.
+- Frontend environment examples include `VITE_API_URL`; Flutter must have its own safe environment/base-URL configuration and must not read Vite variables directly.
+- The documented backend API base is `/api/v1`; actual deployment host and environment must be confirmed.
+- `localhost` on a physical phone means the phone itself. Document and configure Android emulator, iOS simulator, physical Android, physical iPhone, staging and production separately.
+- Production requests must use HTTPS.
+- Do not create a mobile-only database or duplicate business rules.
+
+## A10. Support, testing, security and documentation
+
+The README identifies existing test and quality tooling, including frontend/dashboard Vitest, backend pytest, Playwright end-to-end tests, `npm run typecheck`, `npm run lint`, and backend checks. Preserve these suites and run relevant checks when shared code changes.
+
+The README points to `SECURITY.md`, `DEPLOYMENT.md`, `docs/`, `dashboard/docs/`, `backend/docs/`, and `documents/`. Read relevant documentation before proposing backend changes. Keep changes scoped to `mobile/` unless a verified API gap requires a minimal, documented backend change.
+
+---
+
+# B. REQUIRED MOBILE PRODUCT OUTCOME
+
+Build a production-minded Flutter application for **both iOS and Android** that feels like a premium, human-centered Nepal travel marketplace. Use Withlocals and Airbnb only as high-level product-quality references; do not copy proprietary design, branding, assets, text, or exact layouts.
+
+The application should prioritize:
+
+1. Fast discovery of authentic local experiences.
+2. Search across supported experiences, destinations, guides and categories.
+3. Clear experience details, host/guide information and genuine trust signals.
+4. Secure traveler registration/login and profile management.
+5. Booking and trip management using real backend workflows.
+6. Favorites and reviews only where supported by APIs.
+7. Maila Dai AI travel assistance using existing backend endpoints.
+8. Distinct guide and host workflows based on verified permissions.
+9. Helpful support, notifications and deep links when supported.
+10. Accessibility, localization readiness, resilient networking and maintainable code.
+
+**Do not settle for a set of attractive mock screens.** Deliver functional flows connected to verified backend APIs, and explicitly label any incomplete integration.
+
+---
+
+# C. FIRST RUN PROTOCOL
+
+Before editing files:
+
+1. Read the root `README.md` from top to bottom.
+2. Read relevant `SECURITY.md`, `DEPLOYMENT.md`, architecture/API documents, dashboard role documentation and backend documentation.
+3. Inspect the actual repository tree and current Git status.
+4. Inspect `backend/app/core/roles.py`, auth routes/schemas, all relevant routers, service functions, SQLAlchemy models, Alembic migrations and tests.
+5. Inspect the public frontend's brand assets, visual language, experience cards, search, login, bookings, guide workspace and host workflows.
+6. Inspect the dashboard only to understand role boundaries and data capabilities; do not rebuild it.
+7. Verify the installed Flutter/Dart versions, Xcode, Android SDK, available simulators/emulators, and package compatibility.
+8. Produce an audit and API gap report before major implementation.
+
+For each capability, classify it as **EXISTS**, **PARTIAL**, **MISSING**, or **UNKNOWN**. Include evidence: file path, route, schema, test, or reason it cannot be verified. A README description alone is not proof that the feature works.
+
+Do not stop after the audit: once the audit is documented, implement incrementally unless a genuine blocker requires clarification.
+
+---
+
+
+---
+
+# PREVIOUS PROMPT DETAIL — RETAINED AND SUBJECT TO SECTION A OVERRIDES
+
+# 1. YOUR ROLE
+
+Act as a combined:
+
+- Principal Mobile Application Architect
+- Senior Flutter and Dart Engineer
+- Senior Product Designer
+- UX/UI Designer
+- Information Architect
+- System Architect
+- Travel Marketplace Product Manager
+- API Integration Engineer
+- Backend Integration Engineer
+- Security Engineer
+- Database Architect
+- QA Automation Engineer
+- Performance Engineer
+- Accessibility Specialist
+- DevOps and Mobile Release Engineer
+
+Your mission is to design and develop a production-quality mobile application for Guides Nepal.
+
+Do not merely generate screens or a clickable prototype.
+
+Build a coherent, maintainable, secure, tested, and scalable mobile application that integrates with the existing Guides Nepal platform.
+
+The application must work on both **Android and iOS using one primary Flutter/Dart codebase**.
+
+Use native platform integrations through Flutter plugins when appropriate.
+
+---
+
+# 2. PRODUCT VISION
+
+Guides Nepal is a travel and local-experience marketplace connecting travelers with local guides, hosts, cultural experiences, food tours, outdoor activities, and destinations across Nepal.
+
+The mobile application should deliver a premium experience inspired by the product principles of Withlocals, including:
+
+- Experience discovery
+- Human-centered host profiles
+- Personalized travel experiences
+- Search and filtering
+- Booking and trip management
+- Traveler–host communication
+- Reviews and trust
+- Local recommendations
+- AI-powered travel assistance
+- Host and guide workflows
+
+However, Guides Nepal must have its own identity, product strategy, information architecture, visual language, and interaction patterns.
+
+**Do not clone Withlocals. Do not copy proprietary source code, branding, text, assets, or exact screen layouts.**
+
+Use public competitor information to understand product expectations and identify opportunities for differentiation.
+
+The defining product principle is:
+
+> Discover Nepal through the people who know it best.
+
+The experience should make discovering, understanding, booking, and enjoying authentic local experiences feel natural and trustworthy.
+
+---
+
+# 3. EXISTING REPOSITORY IS THE SOURCE OF TRUTH
+
+Before implementing anything, inspect the existing repository.
+
+The provided README is the initial source of truth, but the actual codebase must be inspected to verify its claims.
+
+The existing platform contains:
+
+- React + TypeScript + Vite frontend
+- React-based administrative dashboard
+- FastAPI backend
+- Python business logic
+- SQLAlchemy models
+- Alembic migrations
+- Existing authentication and role-based access control
+- Experience discovery and search
+- Traveler accounts
+- Guide accounts and workflows
+- Host accounts and workflows
+- Booking functionality
+- User profiles and favorites
+- Host applications
+- Customer support
+- Content management
+- Maila Dai AI assistant
+- Streaming AI chat
+- City and category content
+- Existing tests and documentation
+
+The current README identifies five principal destination cities:
+
+1. Kathmandu
+2. Pokhara
+3. Lalitpur
+4. Bhaktapur
+5. Bharatpur
+
+Inspect the repository for additional destinations and content before deciding which should appear in the application.
+
+The existing architecture documents the following technologies:
+
+- Frontend: React, TypeScript, Vite, Tailwind CSS
+- Backend: Python, FastAPI, SQLAlchemy, Alembic
+- Database: SQLite for development and PostgreSQL for production
+- AI: Ollama or OpenAI
+- Deployment: Vercel and Render
+
+Do not replace these technologies in the existing applications.
+
+## Mandatory preservation rules
+
+**Do not:**
+
+- Rebuild the existing website.
+- Replace the existing dashboard.
+- Create a new backend unnecessarily.
+- Create a separate mobile-only database.
+- Rewrite existing authentication without justification.
+- Replace working APIs merely because you prefer a different implementation.
+- Modify unrelated frontend or dashboard files.
+- delete existing functionality, assets, tests, migrations, or documentation.
+- Change existing API contracts without compatibility analysis.
+- Introduce breaking database migrations unnecessarily.
+- Hardcode mock data as though it were real production data.
+- Claim an integration works before testing it.
+
+The mobile application must be an additional client of the existing platform.
+
+If a required API does not exist, document the gap and propose the smallest compatible change.
+
+---
+
+# 4. REQUIRED ARCHITECTURE
+
+Use the existing repository as a monorepo.
+
+Target structure:
+
+```text
+guides-nepal/
+│
+├── frontend/                    # Existing React website
+│
+├── dashboard/                   # Existing administrative dashboard
+│
+├── backend/                     # Existing FastAPI backend
+│   ├── app/
+│   │   ├── api/v1/
+│   │   ├── core/
+│   │   ├── models/
+│   │   ├── schemas/
+│   │   └── services/
+│   ├── migrations/
+│   └── tests/
+│
+├── mobile/                      # NEW Flutter application
+│   ├── android/
+│   ├── ios/
+│   ├── assets/
+│   ├── lib/
+│   ├── test/
+│   ├── integration_test/
+│   ├── docs/
+│   ├── analysis_options.yaml
+│   ├── pubspec.yaml
+│   └── README.md
+│
+├── docs/                        # Existing shared documentation
+├── documents/                   # Existing PRD and architecture
+├── scripts/
+├── docker-compose.yml
+└── README.md
+```
+
+Adjust the structure only when repository inspection demonstrates a better arrangement.
+
+Do not move existing projects to accommodate Flutter.
+
+## System architecture
+
+```text
+                     GUIDES NEPAL
+                          │
+            ┌─────────────┼─────────────┐
+            │             │             │
+         WEBSITE       DASHBOARD       MOBILE
+          React          React         Flutter
+        TypeScript     TypeScript        Dart
+            │             │             │
+            └─────────────┼─────────────┘
+                          │
+                     HTTPS REST API
+                          │
+                    FastAPI Backend
+                          │
+                 Existing Business Logic
+                          │
+                  Existing Database
+                          │
+       ┌──────────┬───────┼───────┬──────────┐
+       │          │       │       │          │
+   Identity    Booking   Search   AI       Content
+       │          │       │       │          │
+       └──────────┴───────┴───────┴──────────┘
+```
+
+The backend remains authoritative for identity, permissions, prices, availability, bookings, payments, and other security-sensitive operations.
+
+The Flutter application must not duplicate backend business rules.
+
+---
+
+# 5. FLUTTER TECHNOLOGY STACK
+
+Use a modern, stable Flutter release compatible with the development environment.
+
+Verify the installed Flutter and Dart versions before choosing dependencies.
+
+Do not upgrade unrelated development tools automatically.
+
+## Core technologies
+
+- Flutter
+- Dart
+- Material 3 as a foundation, customized for the Guides Nepal brand
+- Cupertino conventions where appropriate for iOS
+- Riverpod for state management
+- GoRouter for navigation
+- Dio for networking
+- Freezed for immutable models and unions
+- json_serializable for JSON serialization
+- flutter_secure_storage for sensitive local storage
+- Drift with SQLite for structured offline caching when justified
+- Flutter's built-in asset and localization infrastructure
+
+## Additional packages
+
+Evaluate and use suitable maintained packages for:
+
+- Image caching
+- Responsive layouts
+- Animation
+- Form validation
+- Internationalization
+- Date and time selection
+- Maps
+- Push notifications
+- Deep linking
+- Analytics
+- Crash reporting
+- Secure authentication
+- File and image selection
+- Accessibility testing
+
+Select packages according to actual requirements.
+
+Before adding a package, verify:
+
+- Maintenance status
+- License
+- Compatibility with current Flutter/Dart
+- iOS and Android support
+- Security considerations
+- Transitive dependencies
+- Performance impact
+
+Do not add multiple packages that perform the same job.
+
+## Architecture pattern
+
+Use a pragmatic combination of Clean Architecture and feature-first organization.
+
+```text
+Presentation
+     │
+     ▼
+Controller / Riverpod Provider
+     │
+     ▼
+Use Case / Application Logic
+     │
+     ▼
+Repository Interface
+     │
+     ▼
+Repository Implementation
+     │
+     ├── Remote Data Source
+     │
+     └── Local Data Source
+```
+
+Keep the architecture understandable.
+
+Do not introduce unnecessary abstractions into simple features.
+
+---
+
+# 6. BRAND IDENTITY AND VISUAL DESIGN
+
+Design the mobile application as a premium Nepal-focused travel product.
+
+Do not assume that the existing website's desktop design should be copied directly to mobile.
+
+First inspect the website's:
+
+- Logo
+- Existing brand colors
+- Typography
+- Photography
+- Iconography
+- Brand voice
+- Button styles
+- Card styles
+- Existing assets
+- Overall visual identity
+
+Preserve recognizable brand elements when they are effective.
+
+Improve inconsistencies where justified.
+
+Do not invent an unrelated brand identity.
+
+## Visual direction
+
+The application should feel:
+
+- Premium
+- Human
+- Welcoming
+- Adventurous
+- Trustworthy
+- Culturally grounded
+- Contemporary
+- Photography-led
+- Spacious
+- Intuitive
+
+Avoid a generic travel-template appearance.
+
+Avoid excessive gradients, unnecessary glassmorphism, excessive shadows, oversized decorative icons, and repetitive AI-generated layouts.
+
+## Color system
+
+Create centralized semantic color tokens.
+
+Use the existing brand palette if it is documented in the repository.
+
+If the existing palette is incomplete, propose a refined palette inspired by Nepal's natural landscapes and cultural heritage.
+
+Suggested starting direction, subject to inspecting the existing brand:
+
+| Token | Suggested color | Purpose |
+|---|---|---|
+| Primary | `#245B4A` | Deep forest green |
+| Primary dark | `#173D32` | Darker emphasis |
+| Secondary | `#C47B43` | Warm earthy accent |
+| Background | `#FAF8F4` | Warm neutral background |
+| Surface | `#FFFFFF` | Cards and sheets |
+| Text primary | `#242824` | Main text |
+| Text secondary | `#6B716C` | Supporting text |
+| Border | `#E6E4DD` | Dividers and outlines |
+| Success | `#287A4B` | Successful states |
+| Warning | `#A86618` | Warning states |
+| Error | `#B63B36` | Errors |
+
+These are provisional design tokens, not permission to overwrite an established brand palette blindly.
+
+Evaluate contrast and refine the palette before implementation.
+
+Centralize the final tokens in the theme system.
+
+Do not scatter raw color values throughout the application.
+
+## Typography
+
+Use a clean, highly readable typeface suitable for travel content.
+
+Evaluate fonts such as Inter or another suitable licensed font.
+
+Use a consistent type scale for:
+
+- Display headings
+- Screen headings
+- Section headings
+- Card titles
+- Body text
+- Supporting text
+- Labels
+- Prices
+- Buttons
+
+Optimize readability on small devices.
+
+## Spacing
+
+Use a consistent spacing scale.
+
+Recommended foundation:
+
+```text
+4
+8
+12
+16
+20
+24
+32
+40
+48
+64
+```
+
+Create reusable spacing constants.
+
+## Component design
+
+Build reusable components for:
+
+- Primary and secondary buttons
+- Search bars
+- Experience cards
+- Host cards
+- City cards
+- Rating displays
+- Price labels
+- Filter chips
+- Date selectors
+- Guest selectors
+- Image galleries
+- Bottom sheets
+- Input fields
+- Navigation bars
+- Loading skeletons
+- Empty states
+- Error states
+- Confirmation dialogs
+- Toasts and snackbars
+- Profile headers
+- Booking status indicators
+
+Each component must support loading, disabled, error, and accessibility states where relevant.
+
+## Photography
+
+Travel imagery is central to the product.
+
+Use high-quality, authentic Nepal-focused imagery for:
+
+- Kathmandu streets and heritage sites
+- Pokhara and its surrounding landscapes
+- Bhaktapur architecture
+- Local food and cooking
+- Trekking and mountain landscapes
+- Cultural experiences
+- Local hosts and guides
+- Workshops and community experiences
+
+Prefer real, licensed, repository-owned, or approved imagery.
+
+Do not scrape copyrighted competitor assets for reuse.
+
+Do not fabricate host portraits or imply that a fictional person is a real verified guide.
+
+Provide appropriate placeholders when real assets are unavailable.
+
+---
+
+# 7. INFORMATION ARCHITECTURE
+
+Design the app around two primary experiences:
+
+1. Traveler experience
+2. Guide/Host workspace
+
+Do not force every user into the same navigation structure.
+
+## Traveler navigation
+
+Recommended bottom navigation:
+
+```text
+┌─────────┬─────────┬─────────┬─────────┬─────────┐
+│  Home   │ Explore │  Trips  │  Inbox  │ Profile │
+└─────────┴─────────┴─────────┴─────────┴─────────┘
+```
+
+Use icons with accessible labels.
+
+Keep the active destination obvious.
+
+The AI assistant should be discoverable without overwhelming the main navigation.
+
+## Traveler information architecture
+
+```text
+Traveler App
+│
+├── Home
+│   ├── Search
+│   ├── Recommended Experiences
+│   ├── Featured Destinations
+│   ├── Experience Categories
+│   ├── Local Highlights
+│   └── Maila Dai AI
+│
+├── Explore
+│   ├── All Experiences
+│   ├── Categories
+│   ├── Destinations
+│   ├── Search Results
+│   ├── Filters
+│   └── Map / List
+│
+├── Experience
+│   ├── Photos
+│   ├── Description
+│   ├── Itinerary
+│   ├── Host Profile
+│   ├── Reviews
+│   ├── Availability
+│   └── Booking
+│
+├── Trips
+│   ├── Upcoming
+│   ├── Pending
+│   ├── Completed
+│   ├── Cancelled
+│   └── Booking Details
+│
+├── Inbox
+│   ├── Conversations
+│   ├── Host Chat
+│   ├── Booking Context
+│   └── Personalized Offers
+│
+├── Saved
+│   ├── Saved Experiences
+│   ├── Saved Hosts
+│   └── Saved Destinations
+│
+├── Maila Dai
+│   ├── Travel Questions
+│   ├── Destination Advice
+│   ├── Experience Discovery
+│   └── Itinerary Assistance
+│
+└── Profile
+    ├── Personal Information
+    ├── Preferences
+    ├── Language
+    ├── Currency
+    ├── Notifications
+    ├── Privacy
+    ├── Help & Support
+    └── Account Settings
+```
+
+## Host and guide workspace
+
+Do not assume `host` and `guide` are interchangeable roles.
+
+The existing backend distinguishes them.
+
+Inspect the role definitions, permissions, schemas, routes, and frontend workflows before deciding which screens each role can access.
+
+Recommended conceptual structure:
+
+```text
+Host / Guide Workspace
+│
+├── Overview
+├── Bookings / Requests
+├── Experiences / Listings
+├── Availability / Capacity
+├── Messages
+├── Live Updates
+├── Earnings
+├── Performance
+└── Profile / Onboarding
+```
+
+Show only capabilities supported by the authenticated role and backend.
+
+Do not expose staff administration to travelers, guides, or hosts unless explicitly authorized by the backend.
+
+---
+
+# 8. AUTHENTICATION AND ACCOUNT MANAGEMENT
+
+Inspect the existing authentication implementation before developing mobile authentication.
+
+The current README documents JWT authentication, documented default access/refresh expiration values, and optional Google/Facebook OAuth configuration. Verify actual behavior in code.
+
+Determine the actual implementation of:
+
+- Registration
+- Login
+- Token issuance
+- Token expiration
+- Token refresh
+- Logout
+- Password reset
+- Email verification
+- OAuth callbacks
+- User profile retrieval
+- Role assignment
+
+Implement only supported flows, and document missing functionality.
+
+## Required mobile screens
+
+- Welcome
+- Login
+- Registration
+- Forgot password
+- Reset password through a supported secure flow
+- OAuth sign-in where configured
+- Authentication loading
+- Authentication failure
+- Session-expired recovery
+
+Use secure token storage.
+
+Do not place tokens in ordinary preferences or logs.
+
+Never trust a client-supplied role.
+
+Authorization must be enforced by the backend.
+
+If a role is not allowed to self-register, the mobile application must not bypass that restriction.
+
+---
+
+# 9. HOME SCREEN DESIGN
+
+The home screen should immediately help users discover meaningful experiences.
+
+Suggested hierarchy:
+
+1. Compact branded header
+2. Personalized welcome
+3. Prominent search
+4. Destination discovery
+5. Experience categories
+6. Recommended experiences
+7. Featured local hosts
+8. Seasonal or editorial content where available
+9. Maila Dai entry point
+10. Helpful travel information
+
+Do not cram every feature into the first screen.
+
+Use natural scrolling and clear section hierarchy.
+
+Example search prompts:
+
+- Discover local food in Kathmandu
+- Find cultural experiences in Bhaktapur
+- Explore Pokhara with a local guide
+- Find an outdoor adventure
+- Plan a weekend in Nepal
+
+Use backend data for actual experiences and recommendations.
+
+If recommendations are not implemented, show curated or popular content only when supported by existing data.
+
+---
+
+# 10. DESTINATIONS AND EXPERIENCE DISCOVERY
+
+Implement a discovery system for existing cities and experiences.
+
+Include:
+
+- Destination browsing
+- Category browsing
+- Experience listings
+- Host discovery
+- Search results
+- Filters
+- Sorting
+- Pagination
+- Loading states
+- Empty states
+- Error recovery
+
+The initial destination experience should recognize the five cities documented in the README.
+
+Do not hardcode the entire experience catalog.
+
+Consume backend content and media URLs.
+
+## Experience cards
+
+Display appropriate fields when available:
+
+- Cover image
+- Experience title
+- City
+- Category
+- Host name
+- Rating and review count
+- Duration
+- Price
+- Group or private experience indicator
+- Relevant availability information
+
+Do not invent ratings, review counts, prices, or availability.
+
+## Search
+
+Audit the existing centralized search implementation.
+
+The website already has a search index covering experiences, guides, cities, and categories.
+
+Determine whether equivalent search functionality is available through an API.
+
+Do not assume a frontend-only TypeScript search index can be directly used by Flutter.
+
+Prefer a backend search API for production-wide data.
+
+If a dedicated API is absent, document the gap and recommend a compatible endpoint rather than silently duplicating business logic.
+
+Search should support:
+
+- Keywords
+- Destination
+- Category
+- Price range
+- Rating where supported
+- Language where supported
+- Date and availability where supported
+- Sorting
+- Recent searches
+- Clear filters
+
+Use debouncing and request cancellation.
+
+Synchronize filter state with the visible UI.
+
+---
+
+# 11. EXPERIENCE DETAIL SCREEN
+
+Create an excellent experience detail screen.
+
+Recommended structure:
+
+```text
+Experience Detail
+│
+├── Image Gallery
+├── Title
+├── Location
+├── Rating / Reviews
+├── Host Summary
+├── Duration / Group Size
+├── Price
+├── Description
+├── Highlights
+├── Itinerary
+├── Included / Excluded
+├── Meeting Point
+├── Requirements
+├── Cancellation Policy
+├── Reviews
+├── Related Experiences
+└── Booking CTA
+```
+
+Use a persistent bottom booking action when appropriate.
+
+Support:
+
+- Save
+- Share
+- View host
+- Ask the host a question
+- Select date
+- Select group size
+- Book
+
+Avoid displaying irrelevant fields when data is unavailable.
+
+Use clear loading and unavailable states.
+
+---
+
+# 12. HOST AND GUIDE PROFILES
+
+Create human-centered profiles.
+
+Where supported, display:
+
+- Profile photograph
+- Name
+- Location
+- Biography
+- Expertise
+- Languages
+- Experiences
+- Reviews
+- Verification status
+- Response information
+- Availability
+- Contact options
+
+Verification must reflect actual backend verification data.
+
+Do not invent trust badges.
+
+Do not treat a public guide profile as authorization to access private guide information.
+
+Use existing profile APIs where available.
+
+---
+
+# 13. BOOKING AND TRIP MANAGEMENT
+
+The booking flow is a critical business journey.
+
+Target flow:
+
+```text
+Experience Detail
+       ↓
+Select Date
+       ↓
+Select Time
+       ↓
+Select Guest Count
+       ↓
+Review Options
+       ↓
+Traveler Details
+       ↓
+Price Summary
+       ↓
+Cancellation Policy
+       ↓
+Payment / Confirmation
+       ↓
+Booking Result
+       ↓
+Trip Details
+```
+
+First inspect the existing booking API, database models, schemas, and frontend implementation.
+
+Do not invent a new booking lifecycle.
+
+Use the actual backend statuses and transitions.
+
+The UI must distinguish clearly between:
+
+- Pending
+- Confirmed
+- Completed
+- Cancelled
+- Failed
+- Refunded
+
+Only expose states that the backend actually supports.
+
+## Booking rules
+
+- The backend validates availability.
+- The backend calculates authoritative pricing.
+- The backend validates booking permissions.
+- The backend controls booking state transitions.
+- The backend validates cancellation and refund eligibility.
+- The client must not assume payment succeeded until verified.
+- Prevent repeated submissions and duplicate booking creation.
+- Handle network interruption during booking safely.
+- Use idempotency mechanisms when supported or implement them through a justified backend extension.
+
+Never simulate a successful booking in production.
+
+## Trips
+
+Provide:
+
+- Upcoming bookings
+- Pending requests
+- Booking details
+- Meeting information
+- Host contact
+- Payment status
+- Cancellation information
+- Past experiences
+- Review actions when eligible
+
+Make the next action for each booking status obvious.
+
+---
+
+# 14. PAYMENTS
+
+Inspect the existing backend and repository for actual payment integrations.
+
+Do not assume that eSewa, Khalti, Fonepay, ConnectIPS, Stripe, or card payments are already implemented.
+
+Design a provider-neutral payment interface where appropriate.
+
+Potential regional and international payment providers can be integrated after validating:
+
+- Business eligibility
+- Supported countries
+- Merchant onboarding requirements
+- SDK availability
+- Webhook support
+- Refund capabilities
+- Mobile redirect requirements
+- Settlement rules
+
+Payment security requirements:
+
+- Never store raw card data.
+- Never place private payment credentials in the Flutter app.
+- Validate payment outcomes on the backend.
+- Use server-side verification and webhooks where supported.
+- Handle pending, failed, cancelled, and successful payments.
+- Do not trust a redirect alone as proof of payment.
+- Keep payment state synchronized with the booking.
+
+If no payment provider is configured, implement a truthful payment-pending or unavailable state and document what remains necessary.
+
+---
+
+# 15. PERSONALIZED EXPERIENCE REQUESTS
+
+Design a personalized experience request flow inspired by the marketplace model of Withlocals.
+
+Possible traveler flow:
+
+```text
+Experience / Host
+       ↓
+Request Customization
+       ↓
+Choose Date / Group Size
+       ↓
+Describe Interests
+       ↓
+Submit Request
+       ↓
+Host Response
+       ↓
+Review Offer
+       ↓
+Accept / Decline
+       ↓
+Booking / Payment
+```
+
+Support custom requests only when backed by an actual backend workflow.
+
+Inspect existing booking, host, and messaging capabilities first.
+
+If the current system does not support personalized offers, document the required models, endpoints, permissions, status transitions, and tests before implementing the feature.
+
+Do not create a frontend-only offer system that cannot persist or be acted upon.
+
+---
+
+# 16. MESSAGING AND INBOX
+
+Create a traveler–host communication experience.
+
+Audit existing messaging functionality before implementation.
+
+Determine whether the backend supports:
+
+- Conversation creation
+- Message retrieval
+- Message sending
+- Read status
+- Attachments
+- Real-time delivery
+- Notifications
+- Booking-linked conversations
+
+Use the existing capabilities.
+
+If messaging endpoints do not exist, document the missing functionality and propose the minimum backend work required.
+
+Potential features:
+
+- Conversation list
+- Message history
+- Text messages
+- Images where supported
+- Booking context
+- Message timestamps
+- Sending state
+- Failed-delivery state
+- Retry
+- Unread indicators
+- Notification deep links
+
+Do not present a fake real-time chat interface.
+
+If WebSockets or another real-time mechanism is absent, use an appropriate documented approach such as polling, or implement a justified backend extension.
+
+Protect conversation privacy through backend authorization.
+
+---
+
+# 17. MAILA DAI AI ASSISTANT
+
+Maila Dai is a recognizable feature of Guides Nepal.
+
+The README documents the existing endpoints:
+
+- `POST /api/v1/ai/chat`
+- `POST /api/v1/ai/chat/stream`
+
+The current implementation supports an AI provider configuration involving Ollama and OpenAI.
+
+Inspect the actual request and response schemas before integration.
+
+Build a mobile-first conversational experience.
+
+Possible tasks:
+
+- Discover local experiences
+- Explore destinations
+- Ask about Nepal's culture
+- Find local food experiences
+- Compare experiences
+- Suggest itineraries
+- Ask travel-planning questions
+- Understand booking information
+
+## AI interface
+
+Include:
+
+- Conversation history where supported
+- Streaming responses
+- Retry after failure
+- Stop generation where supported
+- Clear conversation controls
+- Loading indicator
+- Error recovery
+- Accessible message presentation
+
+Reuse the existing streaming API instead of inventing another endpoint.
+
+Verify the streaming protocol before choosing a Dart parsing strategy.
+
+Handle partial chunks, malformed data, disconnections, cancellation, and retry behavior.
+
+## AI trust rules
+
+Maila Dai must not fabricate:
+
+- Prices
+- Availability
+- Host identities
+- Booking confirmations
+- Payment results
+- Refund eligibility
+- Policies
+- Experience listings
+
+When an answer depends on live platform data, retrieve it through an appropriate authorized backend API.
+
+Do not expose API keys or private prompts in the client.
+
+---
+
+# 18. FAVORITES, REVIEWS, AND PROFILE
+
+## Favorites
+
+Support saving experiences, hosts, and destinations where the backend model permits.
+
+Synchronize authenticated users' favorites with the server.
+
+Handle unauthenticated browsing and login transitions without losing user intent unnecessarily.
+
+Do not claim favorites synchronize across devices unless the backend supports it.
+
+## Reviews
+
+Inspect review models and APIs.
+
+Support:
+
+- Reading reviews
+- Rating display
+- Submitting eligible reviews
+- Validation
+- Error recovery
+- Photo uploads if supported
+
+Enforce review eligibility on the backend.
+
+## Profile
+
+Include:
+
+- Name
+- Email
+- Phone
+- Avatar
+- Biography
+- Preferences
+- Saved experiences
+- Trips
+- Reviews
+- Account settings
+- Notifications
+- Privacy
+- Help and support
+- Logout
+
+Only expose editable fields supported by the API.
+
+---
+
+# 19. GUIDE AND HOST EXPERIENCE
+
+The README distinguishes `guide` and `host` roles.
+
+Preserve this distinction.
+
+Inspect the source of truth for permissions in:
+
+`backend/app/core/roles.py`
+
+Also inspect the associated API guards, models, schemas, and existing frontend workflows.
+
+The current README documents guide capabilities including:
+
+- Guide onboarding
+- Guide dashboard
+- Listings
+- Capacity management
+- Booking requests
+- Real-time updates
+
+It documents host-related workflows such as:
+
+- Host applications
+- Tours
+- Bookings
+- Earnings
+- Performance
+
+Map each capability to its actual role and permissions.
+
+## Guide workspace
+
+Where supported, provide:
+
+- Onboarding
+- Profile management
+- Expertise and languages
+- Listings
+- Listing creation and editing
+- Capacity management
+- Booking requests
+- Accept/decline/complete actions
+- Live updates
+- Booking history
+
+## Host workspace
+
+Where supported, provide:
+
+- Host overview
+- Experience management
+- Bookings
+- Availability
+- Messaging
+- Earnings
+- Performance
+- Profile and onboarding
+
+Do not combine the two roles merely to simplify navigation.
+
+Do not grant permissions through UI visibility alone.
+
+The backend must enforce every protected operation.
+
+## Staff administration
+
+Do not recreate the entire administrative dashboard in the mobile app by default.
+
+Keep the existing web dashboard as the primary interface for administrative, regional, support, and content-management tasks.
+
+Add mobile staff functions only when a specific operational requirement justifies them.
+
+---
+
+# 20. CUSTOMER SUPPORT
+
+The existing platform includes a customer support widget and ticket functionality.
+
+Inspect its APIs and schemas.
+
+Provide a mobile support experience for:
+
+- Help and FAQ
+- Contact/support entry point
+- Ticket submission
+- Ticket status where supported
+- Booking-related help
+- Error reporting instructions
+
+Reuse existing support functionality.
+
+Do not build an unrelated support database.
+
+---
+
+# 21. MAPS AND LOCATION
+
+Use maps where they genuinely improve travel planning.
+
+Possible functionality:
+
+- Destination maps
+- Experience locations
+- Meeting points
+- Directions
+- Map/list browsing
+- Nearby experiences, if supported
+
+Choose a suitable map provider after evaluating:
+
+- Coverage in Nepal
+- Pricing
+- Licensing
+- API key restrictions
+- Android support
+- iOS support
+- Offline needs
+- Privacy implications
+
+Request location permission only when necessary.
+
+The application must still work when location permission is denied.
+
+Do not send location data unnecessarily.
+
+Never imply that an approximate location is precise.
+
+---
+
+# 22. NOTIFICATIONS AND DEEP LINKS
+
+Create notification infrastructure for relevant events:
+
+- Booking updates
+- Booking confirmation
+- Host messages
+- Personalized offers
+- Payment status
+- Trip reminders
+- Cancellations
+- Support updates
+
+Use a suitable notification service and native platform configuration.
+
+Do not assume push notifications work merely because the Flutter package is installed.
+
+Verify:
+
+- Android configuration
+- iOS/APNs configuration
+- Permission flow
+- Device token registration
+- Backend token storage
+- Notification delivery
+- Logout and token lifecycle
+- Deep links
+
+Potential deep-link destinations:
+
+```text
+guidesnepal://experience/{id}
+guidesnepal://host/{id}
+guidesnepal://guide/{id}
+guidesnepal://booking/{id}
+guidesnepal://trip/{id}
+guidesnepal://conversation/{id}
+```
+
+Choose the final scheme after inspecting the existing domain and deployment configuration.
+
+Support HTTPS app links/universal links where configured.
+
+Every deep link must validate authentication and authorization.
+
+---
+
+# 23. OFFLINE SUPPORT AND NETWORK RESILIENCE
+
+Travelers may have unreliable internet connections.
+
+Design useful offline behavior without compromising transactional correctness.
+
+Potentially cache:
+
+- Recently viewed experiences
+- Destination content
+- Non-sensitive preferences
+- Saved display data
+- Upcoming trip details where appropriate
+
+Clearly distinguish cached data from fresh server data.
+
+Handle:
+
+- Offline
+- Reconnecting
+- Synchronizing
+- Failed requests
+- Stale data
+- Retry
+
+Never present stale availability as current.
+
+Never report a booking or payment as completed without server confirmation.
+
+Do not queue financial transactions for blind execution when connectivity returns.
+
+Define conflict handling before implementing synchronization.
+
+---
+
+# 24. INTERNATIONALIZATION AND CURRENCY
+
+Design for international travelers.
+
+Prepare localization infrastructure for:
+
+- English initially
+- Additional languages in the future
+- Locale-aware date formatting
+- Time-zone-aware booking times
+- Currency formatting
+
+Do not hardcode currency symbols throughout widgets.
+
+Use backend-provided pricing and currency information where available.
+
+Do not convert prices using invented exchange rates.
+
+The UI must distinguish display formatting from actual transaction currency.
+
+Use Nepal's local time appropriately when displaying local experience times, while preserving the timezone returned or defined by the backend.
+
+---
+
+# 25. ACCESSIBILITY
+
+Meet practical accessibility standards.
+
+Include:
+
+- Semantic labels
+- Screen reader support
+- Adequate contrast
+- Scalable text
+- Keyboard and focus support where relevant
+- Accessible form validation
+- Minimum practical touch targets
+- Reduced-motion considerations
+- Clear error announcements
+
+Do not rely on color alone to communicate booking status or errors.
+
+Test important flows using accessibility tools and screen readers where possible.
+
+---
+
+# 26. PERFORMANCE AND IMAGE OPTIMIZATION
+
+Optimize the app for real devices, including mid-range Android phones.
+
+Requirements:
+
+- Paginated lists
+- Lazy loading
+- Image caching
+- Appropriate image sizes
+- Efficient list rendering
+- Minimal unnecessary widget rebuilds
+- Request cancellation
+- Debounced search
+- Memory-conscious image galleries
+- Smooth scrolling
+- Efficient state management
+- Clear loading states
+
+Avoid downloading full-resolution images for small cards.
+
+Use server-side image transformations or a compatible image CDN if available.
+
+Do not add an image-processing backend service without evidence that it is needed.
+
+Measure performance and investigate bottlenecks instead of assuming the app is optimized.
+
+---
+
+# 27. ERROR HANDLING AND LOGGING
+
+Build a consistent error-handling layer.
+
+Handle:
+
+- Network failure
+- Timeout
+- Invalid response
+- Authentication failure
+- Expired session
+- Permission denial
+- Validation failure
+- Booking conflict
+- Unavailable experience
+- Payment failure
+- AI failure
+- Upload failure
+- Offline mode
+
+User-facing messages must be understandable and actionable.
+
+Never expose:
+
+- Stack traces
+- Internal server errors
+- Secrets
+- Tokens
+- Database details
+- Private user information
+
+Use structured logging with sensitive data redacted.
+
+Never log passwords, authentication tokens, payment secrets, or unnecessary personal data.
+
+---
+
+# 28. SECURITY REQUIREMENTS
+
+Apply security throughout the application.
+
+Requirements:
+
+- Secure token storage
+- HTTPS for production API requests
+- Server-side authorization
+- Input validation
+- Safe error handling
+- Secure deep-link handling
+- Sensitive-data minimization
+- Secure file-upload handling
+- Appropriate session expiration behavior
+- Dependency review
+- Environment separation
+- Safe logging
+- Privacy-conscious analytics
+
+Do not embed server secrets in the Flutter application.
+
+Do not place database credentials or privileged API keys in Dart source code.
+
+A public mobile application cannot safely conceal secrets merely by putting them in environment files during compilation.
+
+Use backend-mediated operations for privileged actions.
+
+Do not rely on obfuscation as a replacement for server-side security.
+
+Do not introduce certificate pinning without a documented threat model and a reliable certificate-rotation strategy.
+
+Review account deletion, privacy, and consent requirements before release.
+
+---
+
+# 29. FOLDER AND FILE ORGANIZATION
+
+Use a feature-first structure.
+
+Recommended:
+
+```text
+mobile/
+│
+├── android/
+├── ios/
+├── assets/
+│   ├── images/
+│   ├── icons/
+│   ├── fonts/
+│   └── animations/
+│
+├── lib/
+│   │
+│   ├── main.dart
+│   │
+│   ├── app/
+│   │   ├── app.dart
+│   │   ├── bootstrap.dart
+│   │   ├── router/
+│   │   │   ├── app_router.dart
+│   │   │   ├── route_names.dart
+│   │   │   └── route_guards.dart
+│   │   ├── theme/
+│   │   │   ├── app_theme.dart
+│   │   │   ├── app_colors.dart
+│   │   │   ├── app_typography.dart
+│   │   │   ├── app_spacing.dart
+│   │   │   └── app_components.dart
+│   │   └── localization/
+│   │
+│   ├── core/
+│   │   ├── config/
+│   │   ├── constants/
+│   │   ├── errors/
+│   │   ├── network/
+│   │   │   ├── api_client.dart
+│   │   │   ├── api_interceptors.dart
+│   │   │   └── api_error_mapper.dart
+│   │   ├── security/
+│   │   ├── storage/
+│   │   ├── analytics/
+│   │   ├── notifications/
+│   │   ├── permissions/
+│   │   └── utils/
+│   │
+│   ├── shared/
+│   │   ├── widgets/
+│   │   ├── models/
+│   │   ├── formatters/
+│   │   └── extensions/
+│   │
+│   └── features/
+│       │
+│       ├── auth/
+│       │   ├── data/
+│       │   ├── domain/
+│       │   └── presentation/
+│       │
+│       ├── home/
+│       ├── explore/
+│       ├── search/
+│       ├── destinations/
+│       ├── experiences/
+│       ├── hosts/
+│       ├── guides/
+│       ├── bookings/
+│       ├── payments/
+│       ├── trips/
+│       ├── favorites/
+│       ├── messaging/
+│       ├── reviews/
+│       ├── profile/
+│       ├── ai_assistant/
+│       ├── support/
+│       ├── notifications/
+│       └── host_workspace/
+│
+├── test/
+│   ├── core/
+│   ├── features/
+│   └── shared/
+│
+├── integration_test/
+│
+├── docs/
+│   ├── architecture.md
+│   ├── information-architecture.md
+│   ├── design-system.md
+│   ├── api-integration.md
+│   ├── security.md
+│   ├── testing.md
+│   └── release.md
+│
+├── pubspec.yaml
+├── analysis_options.yaml
+└── README.md
+```
+
+This is a recommended structure, not a requirement to create empty files for every directory.
+
+Create files when they serve an actual purpose.
+
+Keep feature-specific widgets and models inside their relevant feature folders.
+
+Avoid circular dependencies.
+
+Keep networking out of UI widgets.
+
+---
+
+# 30. API INTEGRATION STRATEGY
+
+Before implementing the API layer, inspect:
+
+- FastAPI route registration
+- Pydantic schemas
+- Authentication dependencies
+- Role guards
+- SQLAlchemy models
+- Service functions
+- Existing error formats
+- Pagination
+- File upload handling
+- Existing tests
+
+The README identifies API families including:
+
+```text
+/api/v1/auth/*
+/api/v1/bookings/*
+/api/v1/profile/*
+/api/v1/ai/chat
+/api/v1/ai/chat/stream
+/api/v1/admin/*
+/api/v1/content/*
+/api/v1/operations/*
+/api/v1/host/*
+/api/v1/guide/*
+/api/v1/host-applications/*
+```
+
+These are discovery starting points, not proof that every desired operation exists.
+
+Verify every endpoint against the codebase.
+
+## API implementation
+
+Create typed services and repositories for supported functionality.
+
+Examples:
+
+```text
+AuthApi
+ProfileApi
+ExperienceApi
+SearchApi
+DestinationApi
+HostApi
+GuideApi
+BookingApi
+PaymentApi
+FavoritesApi
+ReviewApi
+MessagingApi
+NotificationApi
+SupportApi
+AiApi
+```
+
+Create only services that correspond to actual features and APIs.
+
+Do not invent endpoint paths, query parameters, payloads, or response fields.
+
+If an endpoint is missing, document it in an API gap report.
+
+## API base URL
+
+Support separate configurations for:
+
+- Development
+- Staging
+- Production
+
+Remember that `localhost` on a physical phone points to the phone itself, not the development computer.
+
+Document the correct configuration for:
+
+- Android emulator
+- iOS simulator
+- Physical Android device
+- Physical iPhone
+- Production API
+
+Do not use development HTTP URLs in production.
+
+---
+
+# 31. STATE MANAGEMENT
+
+Use Riverpod consistently.
+
+Separate:
+
+### UI state
+
+- Current tab
+- Selected filters
+- Modal visibility
+- Form state
+- Local interaction state
+
+### Server state
+
+- Experiences
+- Profiles
+- Bookings
+- Destinations
+- Messages
+- Reviews
+
+### Persistent local state
+
+- Session-related information
+- Preferences
+- Cached content
+- Recent searches
+
+Do not store a second authoritative copy of server business data.
+
+Use immutable state where practical.
+
+Handle cancellation, stale responses, and concurrent requests carefully.
+
+---
+
+# 32. TESTING AND QUALITY ASSURANCE
+
+A screen that renders is not a completed feature.
+
+Create tests at multiple levels.
+
+## Unit tests
+
+Test:
+
+- Repositories
+- Use cases
+- Validators
+- Formatters
+- State transitions
+- API parsing
+- Error mapping
+- Booking-related client logic
+
+## Widget tests
+
+Test:
+
+- Forms
+- Navigation
+- Experience cards
+- Search
+- Loading states
+- Error states
+- Empty states
+- Booking interactions
+- Accessibility semantics
+
+## Integration tests
+
+Cover:
+
+- Authentication
+- Experience browsing
+- Search and filters
+- Experience details
+- Favorites
+- Booking
+- Messaging
+- AI chat
+- Guide/host access
+
+## Cross-platform validation
+
+Validate Android and iOS independently.
+
+Check:
+
+- Navigation behavior
+- Keyboard behavior
+- Safe areas
+- Permissions
+- Deep links
+- Notifications
+- Image handling
+- Authentication redirects
+- Build configuration
+
+Do not claim a platform has passed testing if its build or tests have not actually run.
+
+---
+
+# 33. CI/CD AND RELEASE ENGINEERING
+
+Create a practical mobile CI/CD pipeline.
+
+Suggested sequence:
+
+```text
+Code Change
+    ↓
+Dependency Validation
+    ↓
+Dart Formatting Check
+    ↓
+Flutter Analyze
+    ↓
+Unit Tests
+    ↓
+Widget Tests
+    ↓
+Integration Tests
+    ↓
+Android Build Validation
+    ↓
+iOS Build Validation
+    ↓
+Release Approval
+    ↓
+Store Submission
+```
+
+Use appropriate build infrastructure for iOS.
+
+Document signing and provisioning requirements.
+
+Never commit signing certificates, private keys, provisioning secrets, or service credentials.
+
+Prepare:
+
+- Android application ID
+- iOS bundle identifier
+- App icons
+- Splash screen
+- Permission descriptions
+- Privacy disclosures
+- Store screenshots
+- Release notes
+- Versioning strategy
+- Crash reporting
+- Production environment settings
+
+Do not submit automatically to public stores without explicit authorization.
+
+---
+
+# 34. DOCUMENTATION REQUIREMENTS
+
+Create and maintain:
+
+`mobile/README.md`
+
+It must explain:
+
+- Product overview
+- Flutter/Dart versions
+- Prerequisites
+- Setup
+- Installation
+- Folder structure
+- Development commands
+- Environment configuration
+- API configuration
+- Android emulator setup
+- iOS simulator setup
+- Physical-device setup
+- Authentication integration
+- State management
+- Routing
+- Testing
+- Debugging
+- Build instructions
+- Release workflow
+- Troubleshooting
+
+Also create:
+
+```text
+mobile/docs/architecture.md
+mobile/docs/information-architecture.md
+mobile/docs/design-system.md
+mobile/docs/api-integration.md
+mobile/docs/api-gaps.md
+mobile/docs/security.md
+mobile/docs/testing.md
+mobile/docs/release.md
+```
+
+Document any backend changes separately.
+
+Update the root README only where necessary to explain the new mobile application.
+
+Do not overwrite unrelated documentation.
+
+---
+
+# 35. DEVELOPMENT PHASES
+
+Implement the project in controlled phases.
+
+## Phase 0 — Repository Audit
+
+Inspect the entire repository.
+
+Deliver:
+
+- Architecture summary
+- Existing API inventory
+- Authentication analysis
+- Role and permission map
+- Booking workflow analysis
+- Guide/host workflow analysis
+- AI integration analysis
+- Existing UI/brand audit
+- Database entity summary
+- Mobile feature matrix
+- API gap report
+- Risks and dependencies
+
+Do not begin a major implementation before this audit.
+
+## Phase 1 — Product and Design Foundation
+
+Create:
+
+- Mobile information architecture
+- Traveler journey map
+- Guide/host journey map
+- Screen inventory
+- Navigation map
+- Design tokens
+- Component inventory
+- Loading/empty/error state patterns
+- Architecture diagram
+
+## Phase 2 — Flutter Foundation
+
+Create:
+
+- Flutter application in `/mobile`
+- Theme system
+- Navigation
+- Environment configuration
+- API client
+- Error handling
+- Riverpod setup
+- Secure storage
+- Shared components
+- Initial tests
+
+Do not modify the existing applications unnecessarily.
+
+## Phase 3 — Traveler Discovery
+
+Implement:
+
+- Home
+- Destinations
+- Explore
+- Search
+- Filters
+- Experience detail
+- Host and guide profiles
+- Favorites
+
+Use actual API data.
+
+## Phase 4 — Authentication and Personalization
+
+Complete:
+
+- Registration
+- Login
+- Session handling
+- Profile
+- Preferences
+- Account management
+- Favorites synchronization
+
+## Phase 5 — Booking and Trips
+
+Implement:
+
+- Availability
+- Booking flow
+- Price summary
+- Payment integration where available
+- Booking confirmation
+- Trips
+- Cancellation states
+- Booking notifications
+
+## Phase 6 — Communication and AI
+
+Implement:
+
+- Inbox
+- Messaging
+- Maila Dai
+- Streaming
+- Personalized requests where supported
+- Customer support
+
+## Phase 7 — Guide and Host Workspace
+
+Implement role-specific workflows based on verified permissions.
+
+Include listings, bookings, capacity, availability, updates, and other capabilities only where supported.
+
+## Phase 8 — Resilience and Polish
+
+Implement:
+
+- Offline handling
+- Caching
+- Accessibility improvements
+- Performance optimization
+- Deep links
+- Notification integration
+- Animation refinement
+
+## Phase 9 — QA and Security
+
+Run:
+
+- Static analysis
+- Formatting
+- Unit tests
+- Widget tests
+- Integration tests
+- Android build
+- iOS build
+- API integration tests
+- Security review
+- Accessibility review
+- Performance checks
+
+Fix critical defects before release.
+
+## Phase 10 — Release Preparation
+
+Complete:
+
+- Build configurations
+- Signing instructions
+- App icons
+- Store metadata
+- Privacy disclosures
+- Documentation
+- CI/CD
+- Release checklist
+
+---
+
+# 36. REQUIRED ACCEPTANCE CRITERIA
+
+The mobile application is not complete merely because its screens look attractive.
+
+Completion requires:
+
+### Architecture
+
+- New Flutter project exists in `/mobile`.
+- Existing website and dashboard still work.
+- Existing backend remains the authoritative source of business logic.
+- Folder structure is organized and documented.
+- API integrations use verified contracts.
+
+### User experience
+
+- Navigation works.
+- Responsive layouts work on supported phone sizes.
+- Main screens have loading, error, and empty states.
+- Design tokens are centralized.
+- Accessibility is considered.
+- UI reflects the Guides Nepal brand.
+
+### Functionality
+
+- Authentication works against the existing backend.
+- Experience discovery works with real data.
+- Search and filtering work where supported.
+- Profiles load correctly.
+- Favorites work where supported.
+- Booking flows use actual backend rules.
+- Payment outcomes are verified.
+- Trips reflect actual booking state.
+- AI uses the existing supported endpoints.
+- Guide/host features respect backend permissions.
+- Notifications and deep links work if included in the release scope.
+
+### Security
+
+- No secrets are embedded in the application.
+- Tokens are stored securely.
+- Protected operations are enforced server-side.
+- Sensitive data is not logged.
+- Production traffic uses HTTPS.
+
+### Quality
+
+- Flutter analysis passes without unresolved critical issues.
+- Formatting is consistent.
+- Tests pass.
+- Android build succeeds.
+- iOS build succeeds in a suitable environment.
+- Documentation reflects the actual implementation.
+- No known critical defects remain.
+
+For unavailable external services, document the limitation honestly instead of claiming successful integration.
+
+---
+
+# 37. NON-NEGOTIABLE ENGINEERING RULES
+
+1. Inspect before coding.
+2. Use Flutter and Dart for the mobile application.
+3. Support both iOS and Android.
+4. Work in the existing repository under `/mobile`.
+5. Preserve the existing React website.
+6. Preserve the existing dashboard.
+7. Preserve the existing FastAPI backend unless a justified extension is necessary.
+8. Reuse existing APIs when possible.
+9. Verify API contracts before integration.
+10. Do not fabricate endpoints or business rules.
+11. Do not hardcode production content.
+12. Do not trust client-side permissions.
+13. Do not invent booking or payment success.
+14. Keep UI, business logic, and data access separated.
+15. Use reusable components and centralized design tokens.
+16. Avoid unnecessary dependencies and overengineering.
+17. Test meaningful changes.
+18. Document backend gaps and architecture decisions.
+19. Keep changes scoped and reviewable.
+20. Never claim tests or builds passed unless they were actually run.
+
+If a requirement conflicts with the existing implementation, report the conflict and propose the smallest safe change.
+
+---
+
+# 38. FIRST ACTION — DO THIS BEFORE IMPLEMENTATION
+
+Begin by inspecting the existing repository and updated README.
+
+Do not start by generating all the screens.
+
+Produce the following audit:
+
+```text
+A. Existing Repository Structure
+B. Current Frontend and Brand Identity
+C. Existing Backend Architecture
+D. Existing API Inventory
+E. Authentication and Authorization
+F. Traveler Capabilities
+G. Guide Capabilities
+H. Host Capabilities
+I. Booking and Payment Status
+J. Maila Dai AI Integration
+K. Search and Discovery
+L. Existing Database Entities
+M. Existing Tests
+N. Required Mobile Screens
+O. Missing API Capabilities
+P. Security and Technical Risks
+Q. Proposed Flutter Architecture
+R. Proposed Folder Structure
+S. Design System Proposal
+T. Phased Implementation Plan
+```
+
+Classify each feature as:
+
+- **EXISTS** — verified in the current codebase
+- **PARTIAL** — some implementation exists
+- **MISSING** — required functionality is absent
+- **UNKNOWN** — cannot be verified yet
+
+Do not confuse a documented intention with a working implementation.
+
+After the audit, begin implementing the foundation and core screens incrementally.
+
+For every phase:
+
+1. Inspect.
+2. Plan.
+3. Implement.
+4. Run static analysis.
+5. Run relevant tests.
+6. Fix failures.
+7. Verify existing functionality remains intact.
+8. Update documentation.
+9. Summarize completed work and remaining gaps.
+
+**Final objective:** Build a distinctive, trustworthy, premium-quality Guides Nepal mobile application for Android and iOS using Flutter and Dart, integrated with the existing platform and ready to evolve into a production travel marketplace.
+
+---
+
+# D. FINAL EXECUTION RULE
+
+The UPDATED README ALIGNMENT in Section A overrides any older conflicting statement in the retained prompt. If a conflict remains between README documentation and source code, do not guess: document the discrepancy, inspect tests and runtime behavior where possible, and implement only what can be justified. Maintain the scope as a Flutter mobile app for both Android and iOS in `mobile/`, integrated with the existing Guides Nepal platform.

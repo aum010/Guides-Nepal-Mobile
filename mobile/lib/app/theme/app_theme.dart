@@ -74,7 +74,7 @@ abstract final class AppTheme {
           backgroundColor: AppColors.accent,
           foregroundColor: AppColors.textOnAccent,
           disabledBackgroundColor: AppColors.border,
-          disabledForegroundColor: AppColors.textTertiary,
+          disabledForegroundColor: AppColors.textDisabled,
           minimumSize: const Size.fromHeight(AppSpacing.minTouchTarget + 6),
           padding: const EdgeInsets.symmetric(
             horizontal: AppSpacing.x6,
@@ -121,6 +121,15 @@ abstract final class AppTheme {
         ),
         labelStyle: AppTypography.body.copyWith(
           color: AppColors.textSecondary,
+        ),
+        // The label stays above the field from the first frame. A resting field
+        // that only carries a placeholder forgets what it is asking for as soon
+        // as the caret appears — and a screen reader then has nothing to
+        // announce. Floating is the only behaviour in this app.
+        floatingLabelBehavior: FloatingLabelBehavior.always,
+        floatingLabelStyle: AppTypography.caption.copyWith(
+          color: AppColors.textSecondary,
+          fontWeight: FontWeight.w600,
         ),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(AppSpacing.radiusLg),

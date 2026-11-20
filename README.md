@@ -1,459 +1,237 @@
-# Guides Nepal
-
-A modern, open-source platform for independent travelers and local guides in Nepal. Guides Nepal combines curated city experiences (Kathmandu, Pokhara, Lalitpur, Bhaktapur, Bharatpur) with a simple booking flow, user profiles, and an AI chat assistant to help visitors plan trips.
-
-This repository contains a Vite + React frontend, an optional dashboard app, and a FastAPI backend.
-
+# 🏔️ Guides Nepal Mobile
+> A modern, open-source travel platform connecting independent travelers with local guides across Nepal. Discover curated experiences in Kathmandu, Pokhara, Lalitpur, Bhaktapur, and Bharatpur — book adventures, chat with an AI travel assistant, and manage your journey all in one place.
+[![GitHub contributors](https://img.shields.io/github/contributors/aum010/Guides-Nepal-Mobile?style=for-the-badge)](https://github.com/aum010/Guides-Nepal-Mobile/graphs/contributors)
+[![GitHub stars](https://img.shields.io/github/stars/aum010/Guides-Nepal-Mobile?style=for-the-badge)](https://github.com/aum010/Guides-Nepal-Mobile/stargazers)
+[![GitHub forks](https://img.shields.io/github/forks/aum010/Guides-Nepal-Mobile?style=for-the-badge)](https://github.com/aum010/Guides-Nepal-Mobile/network/members)
+[![GitHub issues](https://img.shields.io/github/issues/aum010/Guides-Nepal-Mobile?style=for-the-badge)](https://github.com/aum010/Guides-Nepal-Mobile/issues)
+[![GitHub license](https://img.shields.io/github/license/aum010/Guides-Nepal-Mobile?style=for-the-badge)](./LICENSE)
+[![Frontend: React](https://img.shields.io/badge/Frontend-React%2018-61DAFB?style=for-the-badge&logo=react&logoColor=white)](./frontend)
+[![Backend: FastAPI](https://img.shields.io/badge/Backend-FastAPI-009688?style=for-the-badge&logo=fastapi)](./backend)
+[![Mobile: Flutter](https://img.shields.io/badge/Mobile-Flutter-02569B?style=for-the-badge&logo=flutter)](./mobile)
+---
+## 📖 Table of Contents
+- [Overview](#-overview)
+- [✨ Key Features](#-key-features)
+- [📱 Mobile App](#-mobile-app)
+- [🛠 Tech Stack](#-tech-stack)
+- [📂 Project Structure](#-project-structure)
+- [🚀 Quick Start](#-quick-start)
+- [⚙️ Environment Variables](#%EF%B8%8F-environment-variables)
+- [🔐 User Roles & Permissions](#-user-roles--permissions)
+- [🔑 Seed Credentials](#-seed-credentials)
+- [🌐 API Endpoints](#-api-endpoints)
+- [🗄 Database Schema](#-database-schema)
+- [📦 Deployment](#-deployment)
+- [🤝 Contributing](#-contributing)
+- [🔒 Security](#-security)
+- [📚 Documentation Map](#-documentation-map)
+- [📄 License](#-license)
+---
+## 🏔️ Overview
+**Guides Nepal** is a complete travel and experiences marketplace for Nepal. It empowers independent travelers to discover and book authentic local experiences while giving local guides and hosts the tools to manage listings, bookings, and availability.
+The platform consists of:
+| Component | Description | Tech |
+|-----------|-------------|------|
+| **Frontend** | Public traveler site — explore cities, browse experiences, book trips, chat with AI | React 18 + Vite + Tailwind CSS |
+| **Dashboard** | Admin/host console with 5 role-based consoles | React + Vite |
+| **Backend** | RESTful API, authentication, bookings, AI chat, RBAC | Python + FastAPI + SQLAlchemy |
+| **Mobile** | Flutter mobile app for travelers and guides | Flutter / Dart |
+| **Database** | SQLite (dev) / PostgreSQL (prod) via Supabase | SQLAlchemy + Alembic |
+Supported cities: **Kathmandu** • **Pokhara** • **Lalitpur** • **Bhaktapur** • **Bharatpur**
+---
+## ✨ Key Features
+### For Travelers
+- 🔍 **Advanced Search & Discovery** — Filter experiences by city, category, price range, difficulty, and sort by popularity/rating/price
+- 🏛️ **5 Nepal Cities** — Dedicated pages for Kathmandu, Pokhara, Lalitpur, Bhaktapur, and Bharatpur
+- 📖 **Experience Categories** — Cultural tours, food tours, cooking classes, outdoor activities, wellness, trekking, and more
+- 🤖 **Maila Dai AI Assistant** — Kathmandu-aware AI chat with live weather, local time (UTC+5:45), food recommendations, and adventure ideas
+- 🔐 **Secure Authentication** — JWT + OAuth (Google, Facebook), bcrypt password hashing
+- 🔖 **Bookmarks & Profiles** — Save favorite experiences, manage bookings, upload avatar photos
+### For Guides
+- 📋 **Guide Dashboard** — Live stats, booking requests (accept/decline/complete), capacity overview
+- 📝 **Listing Management** — Create, edit, and publish experiences with max-guest capacity controls
+- 📢 **Real-Time Updates** — Post availability, capacity, booking, schedule, and announcement updates
+- 🎯 **Onboarding Wizard** — 4-step setup: expertise areas, cities/languages, profile, capacity
+### For Hosts
+- 📝 **Host Application Wizard** — 5-step application with document upload and auto-save
+- 🏠 **Host Center** — Resource hub with getting started, pricing, community, and safety guides
+- 📊 **Host Dashboard** — Manage tours, bookings, earnings, and performance metrics
+### For Admins & Staff
+- 👨‍💼 **5 Role-Based Consoles** — Admin, Content Manager, Regional Head, Customer Support, Host
+- 📊 **Analytics & Revenue** — Platform intelligence and revenue reporting
+- 🎫 **Support Ticket System** — Full customer support workflow
+- 🔒 **Role-Based Access Control (RBAC)** — Server-side enforced permissions
+---
+## 📱 Mobile App
+The `mobile/` directory contains the **Flutter** companion app for Guides Nepal, giving travelers and guides a native mobile experience:
+- 📲 Browse and book experiences on the go
+- 🤖 Chat with Maila Dai AI assistant
+- 📋 Guide dashboard for managing bookings and listings
+- 🔐 Secure login for travelers and guides
+- 📍 City-specific experience exploration
+### Mobile Tech
+- **Framework:** Flutter (Dart)
+- **Platforms:** Android, iOS
+- **State Management:** Provider / Riverpod
+- **API Client:** Dio / HTTP
+See `mobile/README.md` for mobile-specific setup instructions.
+---
+## 🛠 Tech Stack
+| Layer | Technology | Purpose |
+|-------|-----------|---------|
+| **Frontend** | React 18, TypeScript, Vite, Tailwind CSS | Public traveler UI |
+| **Dashboard** | React, TypeScript, Vite | Admin/host consoles |
+| **Mobile** | Flutter, Dart | Native mobile app |
+| **Backend** | Python, FastAPI, SQLAlchemy, Alembic | REST API, business logic |
+| **Database** | SQLite (dev) / PostgreSQL (prod) | Data persistence |
+| **AI** | Ollama (local) / OpenAI | Maila Dai chat assistant |
+| **Auth** | JWT (bcrypt), OAuth 2.0 (Google, Facebook) | Authentication & authorization |
+| **Deployment** | Vercel (frontend/dashboard), Render (backend) | Cloud hosting |
+| **Cache/Queue** | Supabase (password reset) | Email & real-time
+---
+## 📂 Project Structure
+```
+Guides-Nepal-Mobile/
+├── 📁 frontend/              # React + Vite + TypeScript traveler site
+│   ├── src/
+│   │   ├── components/       # Reusable UI components
+│   │   ├── pages/            # Page components (auth, host, user, guide, city)
+│   │   ├── contexts/         # React contexts (Currency, Cart)
+│   │   ├── services/         # API service layer
+│   │   ├── hooks/            # Custom React hooks
+│   │   ├── utils/            # Utility functions (search index, analytics)
+│   │   ├── config/           # API configuration
+│   │   └── data/             # Static data files
+├── 📁 dashboard/             # Admin dashboard (React + Vite)
+│   ├── src/
+│   │   ├── admin/            # Admin console pages
+│   │   ├── regionalhead/     # Regional head console
+│   │   ├── support/          # Customer support console
+│   │   ├── host/             # Host console
+│   │   ├── writer/           # Content manager console
+│   │   ├── auth/             # Authentication
+│   │   ├── layouts/          # Layout components
+│   │   └── guards/           # Auth role guards
+├── 📁 backend/               # FastAPI backend API
+│   ├── app/
+│   │   ├── api/v1/           # API route modules
+│   │   ├── models/           # SQLAlchemy database models
+│   │   ├── core/             # Config, database, security, RBAC roles
+│   │   ├── schemas/          # Pydantic request/response schemas
+│   │   └── services/         # Business logic services
+│   ├── tests/                # pytest test suite
+│   ├── migrations/           # Alembic database migrations
+│   ├── seed_credentials.py   # Dev seed: dashboard staff accounts
+│   ├── seed_traveler_guide.py # Dev seed: traveler + guide test accounts
+│   └── seed_host_dashboard.py # Host dashboard seed data
+├── 📁 mobile/                # Flutter mobile application
+├── 📁 docs/                  # Architecture and development docs
+├── 📁 documents/             # PRD and technical architecture
+├── 📁 scripts/               # Utility scripts
+├── 🐳 docker-compose.yml     # Local Docker stack
+├── 📜 start-all.bat          # Start all services (Windows)
+├── 📜 start-all.sh           # Start all services (macOS/Linux)
+└── 📄 README.md              # This file
+```
 ---
 
-## Quick links
+## 🚀 Quick Start
 
-- Live frontend (dev): http://localhost:5175
-- Backend (dev): http://localhost:8000
-- Dashboard (dev): http://localhost:5176
+### Prerequisites
 
----
+- **Node.js** 18+ and **npm** 8+
+- **Python** 3.9+
+- **SQLite 3+** (development) or **PostgreSQL 12+** (production)
+- **Git**
 
-## Changelog
+### Option 1: Start All Services (Recommended)
 
-### v1.3.0 (2026-10-08)
+**Windows:**
+`cmd
+start-all.bat
+`
 
-**Search & Discovery**
-- Centralized search index (`frontend/src/utils/searchIndex.ts`) combining all 5 cities' experiences, guides, cities, and categories
-- Word-by-word filtering with smart scoring (exact matches boosted, type-aware ranking)
-- Enhanced Header search modal with rich suggestions: experience cards (image, rating, price, city, category, host), city cards, category cards, guide cards
-- Search bar now visible on home page (previously hidden)
-- Scrollable results with custom branded scrollbar, max height 420px
-
-**Maila Dai AI Chat Widget**
-- Floating bottom-left widget (mirrors Customer Support on right) with person/guide icon
-- Full in-widget chat: streaming AI via `/api/v1/ai/chat/stream`, fallback to non-streaming
-- Resizable (drag grip handle, 300-600px), minimizable, persistent message history
-- Auto-hides when mobile booking sheet opens
-- Removed `/chat` and "Bookings" from header; Maila Dai widget is primary chat entry
-
-**UI Improvements**
-- Cleaner header: removed Chat and Bookings links from desktop and mobile menus
-- Support section in hamburger menu retains Help, Currency, Gift Cards, Become a Host, Consent, Privacy, Help
-- Both floating widgets (Support + Maila Dai) lift above sticky booking bar on mobile
-
-### v1.2.0 (2026-10-06)
-
-## User Roles & Permissions
-
-Guides Nepal has a comprehensive role-based access control (RBAC) system with **5 dashboard
-consoles** (admin, content-manager, regional-head, customer-support, host), plus two
-non-dashboard roles: `traveler` for the public site and `guide` for the public frontend.
-Travelers and guides do not sign in to the dashboard.
-
-The single source of truth for roles is `backend/app/core/roles.py`. Every API guard
-resolves through `has_access()`, which implicitly authorizes `admin` for all guards and
-requires every other role to be named explicitly.
-
-`dashboard/src/utils/roles.ts` mirrors only the five console roles. `normalizeRole()`
-deliberately returns `null` for `guide` and `traveler`, so those accounts are refused at
-the dashboard sign-in screen instead of reaching an empty console.
-
-### Role Hierarchy
-
-```
-Admin
-    ├── Content Manager
-    ├── Regional Head (by region)
-    ├── Customer Support
-    └── Host
-
-Non-dashboard
-    ├── Guide   (public frontend only)
-    └── Traveler (public site only)
-```
-
-### Complete User Roles Table
-
-| Role | Dashboard Access | Key Permissions |
-|------|-----------------|-----------------|
-| **Admin** | `/dashboard/admin/*` | Full system access, manage users, hosts, guides, content, host applications, support tickets, analytics, revenue reports, role hierarchy |
-| **Content Manager** | `/dashboard/content-manager/*` | Create/edit pages, blog posts, guides content, media uploads, SEO settings |
-| **Regional Head** | `/dashboard/regional-head/*` | Manage host applications for assigned region, view regional information |
-| **Customer Support** | `/dashboard/customer-support/*` | View and manage support tickets, respond to customer inquiries |
-| **Host** | `/dashboard/host/*` | Manage own tours, view bookings, track earnings, view performance metrics |
-| **Guide** | *none — no dashboard console* | Public frontend only. Scoped API at `GET /api/v1/guide/me` (`require_role("guide")`) returns its own record and granted capabilities |
-| **Traveler** | *none — no dashboard console* | Browse experiences, book tours, chat with guides, view profiles (default role) |
-
-> **Note:** The former Super Admin role was removed. `guide` is a backend/API role with no
-> dashboard console; admins still see guide accounts in **Administration** with their real
-> role, and can assign or revoke the role. Admin is the top of the hierarchy and holds full
-> system access.
-
-### Pre-configured Seed Users
-
-The system comes with the following pre-configured users for development and testing:
-
-| Email | Role | Password | Region/Scope |
-|-------|------|----------|--------------|
-| `admin@guides-nepal.com` | Admin | `Admin@12345` | Full system |
-| `content@guides-nepal.com` | Content Manager | `Content@2024` | Pages · Blog · Media · SEO |
-| `regional@guides-nepal.com` | Regional Head | `Regional@2024` | Kathmandu Valley |
-| `support@guides-nepal.com` | Customer Support | `Support@2024` | Tickets · FAQ |
-| `host@guides-nepal.com` | Host | `Host@2024` | Tours · Bookings · Earnings |
-| `guide@guides-nepal.com` | Guide | `Guide@2024` | Public frontend · **cannot sign in to the dashboard** |
-| `traveler@guides-nepal.com` | Traveler | `Traveler@2024` | Public site only · **cannot sign in to the dashboard** |
-
-The first five appear in the dashboard role dropdown and land on their console. The guide
-and traveler accounts are seeded for public-frontend/API testing only.
-
-Run `python seed_credentials.py` from `backend/` to create or reset the staff/console
-accounts, or `python seed_traveler_guide.py` to create or reset just the traveler +
-guide test accounts. Both scripts are idempotent — they upsert by email, so they are
-safe to re-run.
-
-> **⚠️ Security Notice:** These are development-only credentials. Always change default passwords before deploying to production. For security, these credentials are stored in `backend/.env` and should never be committed to version control.
-
-### Traveller & Guide Test Credentials (public frontend)
-
-> **Spelling note:** "Traveller" (British English) maps to the codebase role
-> `traveler` (American English, see `backend/app/core/roles.py`).
-
-| Role | Email (username) | Password | Where to sign in |
-|------|------------------|----------|------------------|
-| Traveller (`traveler`) | `traveler@guides-nepal.com` | `Traveler@2024` | Public frontend login (`http://localhost:5175`, Login modal → Traveller tab) or `POST /api/v1/auth/login` |
-| Guide (`guide`) | `guide@guides-nepal.com` | `Guide@2024` | Public frontend login (`http://localhost:5175`, Login modal → Guide tab) or `POST /api/v1/auth/login` |
-
-**Create / reset them:**
-
-```bash
-cd backend
-python seed_traveler_guide.py
-```
-
-**How to use them:**
-
-1. Start the backend and frontend (`.\start-all.bat`, or `cd backend` +
-   `uvicorn app.main:app --reload --port 8000` and `cd frontend` +
-   `npm run dev -- --port 5175 --host`).
-2. Open `http://localhost:5175`, click **Log in**, pick the **Traveller** or
-   **Guide** tab, and sign in with the email + password above.
-3. Or call the API directly:
-   ```bash
-   curl -X POST http://localhost:8000/api/v1/auth/login \
-     -H "Content-Type: application/json" \
-     -d '{"email":"traveler@guides-nepal.com","password":"Traveler@2024"}'
-   ```
-4. Neither account can sign in to the staff dashboard (`http://localhost:5176`) —
-   they have no console and are refused at sign-in by design; admins can still
-   see them under **Administration**.
-
-### Guide Dashboard & Onboarding (public frontend)
-
-Guides get their own **post-login dashboard on the public site** (not the staff
-dashboard) after signing in with a `guide` account. Logging in as a guide
-redirects to `/guide/dashboard`.
-
-**Frontend routes** (all guarded — non-guide roles are redirected away):
-
-| Route | Purpose |
-|-------|---------|
-| `/guide/onboarding` | 4-step onboarding wizard: expertise areas → cities/languages → profile + default max-guest capacity → review |
-| `/guide/dashboard` | Post-login home: live stats, booking requests (accept/decline/complete), post real-time updates, capacity overview. Auto-refreshes every 30 s |
-| `/guide/listings` | Manage own listings: edit, remove, and adjust max guest capacity inline |
-| `/guide/listings/new` | Step-by-step listing wizard (create) |
-| `/guide/listings/:id/edit` | Step-by-step listing wizard (edit) |
-| `/guide/bookings` | Full booking request list |
-
-**Real-time updates** — from the dashboard a guide posts updates of type
-`availability`, `capacity`, `booking`, `schedule` or `announcement` (e.g. "4
-spots left for the Oct 20 Annapurna sunrise trek"). Updates are stored per
-guide + optional listing/area and appear in the dashboard feed; the booking
-list and stats re-poll every 30 seconds so new bookings show up live.
-
-**Backend API** (all under `require_role("guide")`, scoped to the signed-in user):
-
-| Method & path | Purpose |
-|---------------|---------|
-| `GET /api/v1/guide/dashboard` | Aggregated stats + listings + recent updates |
-| `GET/PUT /api/v1/guide/onboarding` | Load / save onboarding profile |
-| `GET/POST /api/v1/guide/listings` | List / create own listings |
-| `PATCH/DELETE /api/v1/guide/listings/{id}` | Edit / delete a listing |
-| `PATCH /api/v1/guide/listings/{id}/capacity` | Set `max_guests` or apply `booked_delta` |
-| `GET/POST /api/v1/guide/status`, `DELETE /api/v1/guide/status/{id}` | Manage real-time updates |
-| `PATCH /api/v1/guide/bookings/{id}` | Accept / reject / complete own bookings |
-
-#### Step-by-step: how a guide lists an experience (with capacity)
-
-1. **Sign in** as the guide (`guide@guides-nepal.com` / `Guide@2024`) on
-   `http://localhost:5175` → you land on `/guide/dashboard`.
-2. **Onboarding (first run):** at `/guide/onboarding` pick expertise areas
-   (trekking routes, travel tours, specialized activities), cities and
-   languages, then profile + **default max guests (1–100)** → *Complete
-   onboarding*.
-3. **New listing:** dashboard → *New listing* (`/guide/listings/new`).
-   - **Step 1 – type:** trekking route, travel tour, or specialized activity.
-   - **Step 2 – name & place:** title, city, optional finer area (e.g. Annapurna Circuit).
-   - **Steps 3–4 – details & capacity:** description, itinerary, meeting point,
-     duration, difficulty, price, and **maximum guests (1–100)**.
-   - **Step 5 – review & publish** (plus capacity rules on the final screen).
-4. **Manage capacity later:** `/guide/listings` → enter a new value next to any
-   listing → *Save capacity*. Raising is instant; lowering **below already-booked
-   guests is rejected with `422`**. Server-side `booked_delta` adjusts the
-   occupied count when travelers join or cancel (bounds 0…`max_guests`).
-5. **Post real-time updates:** dashboard → *Post a live update* → choose type
-   (`availability`, `capacity`, `booking`, `schedule`, `announcement`) and
-   message → *Post update*. It appears in the feed immediately.
-
-#### Published listings reach travellers
-
-An **active** listing is a real catalogue row, not a dashboard draft:
-
-| Public surface | What it serves a listing as |
-|---|---|
-| `GET /api/v1/experiences` | `id = 200000 + listing id`, `slug = listing-<slug>`, its guide as host, plus `difficulty`, `meetingPoint`, `itinerary`, `maxGuests`, `availableSpots` |
-| `GET /api/v1/experiences/listing-<slug>` | the detail page (404 once the listing is paused) |
-| `GET /api/v1/guides/{id}` | the guide account's public profile (`300000 + user id`) |
-| `GET /api/v1/updates?city=` | the guide's live updates for that city |
-| `POST /api/v1/guide/listings/{id}/photo` | the guide's cover photo (JPEG/PNG/WebP ≤ 5 MB, stored under `/uploads`, served at the same path) |
-
-`category` is mapped onto the public values the Explore filters use
-(`trekking → Adventure`, `tour → Cultural`, `specialized → Workshop`).
-The slug is generated once at create time and **never changes on rename**, so a
-link a traveller shared keeps working.
-
-A booking on a listing goes to **the guide who owns it** (`guide_user_id`) and
-records `guide_listing_id`; `POST /bookings/` refuses more guests than the
-listing has seats left and gives them back on cancellation or decline.
-
-### Dashboard Routes by Role
-
-All dashboard routes are served under `/dashboard` (for example the admin overview is at
-`/dashboard/admin`). The paths below omit that prefix for readability. Every console is
-wrapped in `<RequireAuth>` + `<RequireRole>`, so a role mismatch redirects to
-`/dashboard/login` — and the API independently returns `403`.
-
-There are exactly five consoles: admin, content-manager, regional-head, customer-support
-and host. `guide` and `traveler` accounts have no console and are refused at sign-in.
-
-#### Public (All Users)
-- `/` - Home page
-- `/explore` - Explore experiences
-- `/search` - Search
-- `/city/:cityId` - City pages (Kathmandu, Pokhara, Lalitpur, Bhaktapur, Bharatpur)
-- `/local/:id` - Local guide profiles
-- `/contact` - Contact page
-- `/faq` - FAQ
-
-#### Admin (`admin` role)
-- `/admin` - Admin overview
-- `/admin/platform` - Platform-wide overview
-- `/admin/hosts` - Manage hosts
-- `/admin/guides` - Manage guides
-- `/admin/host-applications` - Review all host applications
-- `/admin/support-tickets` - View all support tickets
-- `/admin/hierarchy` - Role hierarchy
-- `/admin/intelligence` - Platform intelligence
-- `/admin/analytics` - Analytics dashboard
-- `/admin/revenue` - Revenue reports
-- `/admin/settings` - System settings
-- `/admin/content` - Content management
-
-#### Regional Head (`regional-head` role)
-- `/regional-head` - Regional overview
-- `/regional-head/applications` - Host applications for their region
-- `/regional-head/region` - Regional information
-
-#### Customer Support (`customer-support` role)
-- `/customer-support` - Support overview
-- `/customer-support/tickets` - Support tickets
-- `/customer-support/faq` - FAQ management
-
-#### Content Manager (`content-manager` role)
-- `/content-manager` - Content overview
-- `/content-manager/pages` - Manage pages
-- `/content-manager/blog` - Blog management
-- `/content-manager/guides-content` - Guides content
-- `/content-manager/media` - Media library
-- `/content-manager/seo` - SEO settings
-
-#### Host (`host` role)
-- `/host` - Host overview
-- `/host/guides` - Manage guide profiles
-- `/host/tours` - Manage tours
-- `/host/bookings` - View bookings
-- `/host/earnings` - Earnings dashboard
-- `/host/performance` - Performance metrics
-
-### Role Assignment During Registration
-
-Self-registration is allow-listed to `SELF_REGISTERABLE_ROLES` in `backend/app/core/roles.py`,
-which is enforced server-side by a validator on the `UserCreate` schema:
-
-- `traveler` - Public-site account (default)
-- `host` - Tour host
-
-Any other role — including `guide`, `admin`, `content-manager`, `regional-head` and
-`customer-support` — is rejected with `422` by `POST /api/v1/auth/register`, because the
-request body is client-controlled. Elevated roles are granted by an admin via
-`PATCH /api/v1/admin/users/{id}` (which validates against `ADMIN_ASSIGNABLE_ROLES` and
-refuses to mass-assign `hashed_password`), or by `backend/seed_credentials.py`.
-
-After registration, hosts must be approved by an admin or regional head before they can access their full dashboard features.
-
-## Key features
-
-- Centralized search index with word-by-word filtering across all experiences, guides, cities, categories
-- Enhanced Header search modal with rich suggestion cards (images, ratings, prices, categories)
-- Floating Maila Dai AI chat widget (bottom-left): resizable, minimizable, streaming responses
-- Floating Customer Support widget (bottom-right): ticket submission
-- Experience browsing with consistent booking UI
-- JWT + OAuth authentication (Google, Facebook)
-- Booking management and host workflows
-- User profiles with avatar/photo uploads and bookmarks
-- AI chat assistant (Maila Dai) — streaming chat with local LLM (Ollama) or OpenAI fallback, Kathmandu-aware (weather, time, food, culture, adventure)
-- Advanced search & discovery — filter by city, category, price range, sort by popularity/rating/price
-- Host application wizard — 5-step multi-page form with document upload, auto-save to localStorage, business/individual/agency host types
-- Host Center — resource hub for hosts (getting started, pricing, community, safety, support)
-- Become a Host page — landing page with Guides Nepal Originals (ready-made experience templates)
-- Guide workflow — guide bookings dashboard, become-a-guide application
-- 5 Nepal cities — Kathmandu, Pokhara, Lalitpur, Bhaktapur, Bharatpur with dedicated experience pages
-- Specialized experience categories — Cultural, Food Tours, Cooking Classes, Outdoor Activities, Wellness
-- Role-based admin dashboard with 5 consoles (Admin, Content Manager, Regional Head, Customer Support, Host)
-- Mobile-first responsive UI using Tailwind CSS
-
----
-
-## Tech stack
-
-- Frontend: React 18, TypeScript, Vite, Tailwind CSS
-- Backend: Python, FastAPI, SQLAlchemy, Alembic
-- Database: SQLite (development) / PostgreSQL (production)
-- AI: Ollama (local) or OpenAI
-- Deployment: Vercel (frontend), Render (backend)
-
----
-
-## Quick start (local development)
-
-Prerequisites:
-- Node.js 18+ and npm 8+
-- Python 3.9+
-- SQLite 3+ (for development) or PostgreSQL 12+
-
-### Starting All Services
-
-The project includes launchers per OS (plus `npm run dev`, which works everywhere):
-
-```bash
-# Windows
-.\start-all.bat
-```
-
-```bash
-# macOS / Linux
+**macOS / Linux:**
+`ash
 ./start-all.sh
-```
+`
 
-```bash
-# Or start individual services (Windows):
-.\start-frontend.bat    # Frontend on port 5175
-.\start-backend.bat     # Backend on port 8000
-.\start-dashboard.bat   # Dashboard on port 5176
-```
+### Option 2: Start Individual Services
 
-### Manual Startup
-
-**Frontend:**
-```bash
+**Frontend** (port 5175):
+`ash
 cd frontend
+npm install
 npm run dev -- --port 5175 --host
-```
+`
 
-**Backend:**
-```bash
+**Backend** (port 8000):
+`ash
 cd backend
-# Activate the venv (pick the line for your OS):
-#   Windows (PowerShell):  .\.venv\Scripts\Activate.ps1
-#   Windows (cmd):         .venv\Scripts\activate.bat
-#   macOS / Linux (bash):  source .venv/bin/activate
+# Create and activate virtual environment
+python -m venv .venv
+pip install -r requirements.txt
 uvicorn app.main:app --reload --port 8000
-```
+`
 
-**Dashboard:**
-```bash
+**Dashboard** (port 5176):
+`ash
 cd dashboard
+npm install
 npm run dev -- --port 5176 --host
-```
+`
 
 ### Access Points
-- Frontend: http://localhost:5175
-- Dashboard: http://localhost:5176
-- Backend API: http://localhost:8000
-- API Documentation: http://localhost:8000/api/v1/docs
 
-### Default Credentials
+| Service | URL |
+|---------|-----|
+| Frontend (Traveler Site) | http://localhost:5175 |
+| Dashboard (Admin Console) | http://localhost:5176 |
+| Backend API | http://localhost:8000 |
+| API Docs (Swagger) | http://localhost:8000/api/v1/docs |
+| API ReDoc | http://localhost:8000/api/v1/redoc
+### 🔑 Default Login Credentials
 
-After running `seed_credentials.py` you can sign in to any console with these
-pre-seeded accounts:
+After seeding the database, use these pre-configured accounts:
 
-**Admin Login:**
-- Email: `admin@guides-nepal.com`
-- Password: `Admin@12345`
+| Role | Email | Password | Access |
+|------|-------|----------|--------|
+| Admin | dmin@guides-nepal.com | Admin@12345 | Full dashboard |
+| Content Manager | content@guides-nepal.com | Content@2024 | Content console |
+| Regional Head | egional@guides-nepal.com | Regional@2024 | Regional console |
+| Customer Support | support@guides-nepal.com | Support@2024 | Support console |
+| Host | host@guides-nepal.com | Host@2024 | Host console |
+| Traveler | 	raveler@guides-nepal.com | Traveler@2024 | Public frontend only |
+| Guide | guide@guides-nepal.com | Guide@2024 | Public frontend only
 
-**Content Manager Login:**
-- Email: `content@guides-nepal.com`
-- Password: `Content@2024`
+> ⚠️ **Security Notice:** These are development-only credentials. Change all default passwords before deploying to production.
 
-**Regional Head Login:**
-- Email: `regional@guides-nepal.com`
-- Password: `Regional@2024`
-- Region: Kathmandu Valley
-
-**Customer Support Login:**
-- Email: `support@guides-nepal.com`
-- Password: `Support@2024`
-
-**Host Login:**
-- Email: `host@guides-nepal.com`
-- Password: `Host@2024`
-
-**Traveller Login (public frontend only — no dashboard console):**
-- Email: `traveler@guides-nepal.com`
-- Password: `Traveler@2024`
-
-**Guide Login (public frontend only — no dashboard console):**
-- Email: `guide@guides-nepal.com`
-- Password: `Guide@2024`
-
-Create/reset just these two with `cd backend` + `python seed_traveler_guide.py`.
-Sign in at `http://localhost:5175` (Login modal → Traveller/Guide tab) or via
-`POST /api/v1/auth/login` — see [Traveller & Guide Test Credentials](#traveller--guide-test-credentials-public-frontend).
-
-See [Pre-configured Seed Users](#pre-configured-seed-users) for the full table. The
-dashboard login screen has a role dropdown that pre-fills the five console accounts; the
-seeded `guide@guides-nepal.com` account is intentionally absent from that dropdown because
-guides have no dashboard console.
+Run cd backend && python seed_credentials.py to create staff accounts, or python seed_traveler_guide.py for traveler/guide test accounts.
 
 ---
 
-## Environment variables
+## ⚙️ Environment Variables
 
 ### Frontend (.env.local)
 
-```bash
+`ash
+VITE_API_URL=http://localhost:8000/api/v1
 VITE_SUPABASE_URL=https://your-project.supabase.co
 VITE_SUPABASE_PUBLISHABLE_KEY=your-publishable-key
-VITE_API_URL=http://localhost:8000/api/v1
-```
+`
 
-### Backend (backend/.env)
+### Backend (ackend/.env)
 
-```bash
+`ash
 # Environment
 ENV=development
 LOG_LEVEL=INFO
 
 # Database
 DATABASE_URL=sqlite:///./guides_nepal.db
-# For production: DATABASE_URL=postgresql://user:password@localhost:5432/guides_nepal
+# Production: DATABASE_URL=postgresql://user:password@localhost:5432/guides_nepal
 
-# Server / CORS
+# Server
 BACKEND_HOST=0.0.0.0
 BACKEND_PORT=8000
 BACKEND_CORS_ORIGINS=http://localhost:5175,http://localhost:5176
@@ -465,12 +243,12 @@ ACCESS_TOKEN_EXPIRE_MINUTES=30
 REFRESH_TOKEN_EXPIRE_DAYS=7
 UPLOADS_DIR=./uploads
 
-# Dev seeding (ignored unless ENV=development)
+# Dev Seeding
 DEV_ALLOW_SEED=true
 DEV_SEED_ADMIN_EMAIL=admin@guides-nepal.com
 DEV_SEED_ADMIN_PASSWORD=Admin@12345
 
-# OAuth (optional — endpoints return 500 until set)
+# OAuth (Optional)
 GOOGLE_CLIENT_ID=
 GOOGLE_CLIENT_SECRET=
 GOOGLE_REDIRECT_URI=http://localhost:8000/api/v1/auth/oauth/google/callback
@@ -479,239 +257,258 @@ FACEBOOK_CLIENT_SECRET=
 FACEBOOK_REDIRECT_URI=http://localhost:8000/api/v1/auth/oauth/facebook/callback
 FRONTEND_OAUTH_REDIRECT=http://localhost:5175
 
-# AI (optional)
+# AI (Optional)
 AI_PROVIDER=auto
 OLLAMA_URL=http://localhost:11434
 OLLAMA_MODEL=llama3.2:latest
 OPENAI_API_KEY=
 
-# Supabase (for password reset)
+# Supabase (Password Reset)
 SUPABASE_URL=https://your-project.supabase.co
 SUPABASE_SERVICE_ROLE_KEY=your-service-role-key
 RESET_PASSWORD_REDIRECT_URL=http://localhost:5175/reset-password
-```
+`
 
-> The OAuth and Supabase blocks are optional in development. Without OAuth credentials
-> `GET /api/v1/auth/oauth/{google,facebook}/start` deliberately returns `500`; without
-> Supabase, password reset by email is unavailable (local passwords still work).
-
-Never commit secrets or .env files to the repository.
+> 🔒 Never commit .env files or secrets to version control.
 
 ---
 
-## Project layout
+## 🔐 User Roles & Permissions
 
-```
-Guides Nepal/
-├── frontend/              # React + Vite + TypeScript frontend
-│   ├── src/
-│   │   ├── components/    # Reusable UI components
-│   │   ├── pages/         # Page components
-│   │   │   ├── auth/          # Auth pages (login, reset password, OAuth callback)
-│   │   │   ├── host/          # Host pages (BecomeHost, HostApplicationWizard)
-│   │   │   ├── user/          # User pages (Profile, Favorites, Chat, Bookings, Settings)
-│   │   │   ├── guide/         # Guide pages (GuideBookings, BecomeGuide)
-│   │   │   ├── kathmandu/     # Kathmandu city & experiences
-│   │   │   ├── pokhara/       # Pokhara city & experiences
-│   │   │   ├── lalitpur/      # Lalitpur city & experiences
-│   │   │   ├── bhaktapur/     # Bhaktapur city & experiences
-│   │   │   ├── bharatpur/     # Bharatpur city & experiences
-│   │   │   ├── cooking/       # Cooking experiences
-│   │   │   ├── food/          # Food tours
-│   │   │   └── ...            # Search, Explore, Experiences, Blog, etc.
-│   │   ├── contexts/      # React contexts (Currency, Cart)
-│   │   ├── services/      # API services
-│   │   ├── hooks/         # Custom hooks
-│   │   ├── utils/         # Utility functions (canonicalExperience, analytics)
-│   │   ├── config/        # Config (api.ts)
-│   │   ├── data/          # Static data files
-│   │   └── styles/        # CSS styles
-│   └── ...
-├── dashboard/             # Admin dashboard (React + Vite)
-│   ├── src/
-│   │   ├── admin/         # Admin pages
-│   │   ├── regionalhead/  # Regional head pages
-│   │   ├── support/       # Support pages
-│   │   ├── host/          # Host pages
-│   │   ├── writer/        # Content writer pages
-│   │   ├── auth/          # Authentication
-│   │   ├── layouts/       # Layout components
-│   │   ├── guards/        # Auth guards
-│   │   └── ...
-│   └── ...
-├── backend/               # FastAPI backend
-│   ├── app/
-│   │   ├── api/v1/        # API endpoints (auth, admin, content, host, guide, ai, bookings, profile, operations, host-applications)
-│   │   ├── models/        # SQLAlchemy models
-│   │   ├── core/          # Config, database, security, roles (RBAC), dependencies
-│   │   ├── schemas/       # Pydantic request/response models
-│   │   ├── services/      # Business logic
-│   │   └── ...
-│   ├── tests/             # pytest suite (test_roles.py, test_rbac.py, ...)
-│   ├── migrations/        # Alembic migrations
-│   ├── seed_credentials.py  # Idempotent dev seed: one account per dashboard role
-│   ├── seed_traveler_guide.py  # Idempotent seed for traveler + guide test accounts
-│   ├── seed_host_dashboard.py  # Host dashboard seed data
-│   └── ...
-├── scripts/               # Utility scripts
-├── docs/                  # Documentation
-├── documents/             # PRD and technical architecture
-├── start-all.bat          # Start all services (Windows)
-├── start-frontend.bat     # Start frontend only
-├── start-backend.bat      # Start backend only
-├── start-dashboard.bat    # Start dashboard only
-├── start-services.ps1     # Start services (PowerShell)
-├── docker-compose.yml     # Local Docker stack
-└── README.md              # This file
-```
+Guides Nepal uses a comprehensive **Role-Based Access Control (RBAC)** system with 7 roles across dashboard and public frontend.
 
----
+### Role Hierarchy
 
-## Development notes
+`
+┌─────────────────────────────────────────────┐
+│              ADMIN (Top Level)              │
+│  Full system access — users, content,       │
+│  analytics, revenue, role hierarchy         │
+└──────────────┬──────────────────────────────┘
+               ├── Content Manager
+               ├── Regional Head (by region)
+               ├── Customer Support
+               └── Host
 
-- Frontend: TypeScript strict mode, ESLint and Prettier configured
-- Backend: Use Black, Ruff, and Mypy for formatting and type checks
-- Run `npm test` for the full suite (frontend + backend + dashboard)
-- Type checks: `npm run typecheck` · Lint: `npm run lint` · Format: `npm run format`
+NON-DASHBOARD ROLES (public frontend only):
+├── Guide    → /guide/dashboard (no staff console)
+└── Traveler → Public site browsing & bookings
+`
 
-### Tests
+### Role Permissions Matrix
 
-| Command | Scope |
-|---------|-------|
-| `npm test` | Everything: frontend, backend, dashboard |
-| `npm run test:frontend` | Public site (Vitest) |
-| `npm run test:backend` | Backend (pytest, with coverage) |
-| `npm run test:dashboard` | Dashboard (Vitest) |
-| `npm run test:e2e` | Playwright end-to-end specs |
+| Role | Dashboard Access | Key Permissions |
+|------|-----------------|-----------------|
+| **Admin** | /dashboard/admin/* | Full system: users, hosts, guides, content, tickets, analytics, revenue, roles |
+| **Content Manager** | /dashboard/content-manager/* | Pages, blog posts, guides content, media, SEO |
+| **Regional Head** | /dashboard/regional-head/* | Host applications for assigned region, regional info |
+| **Customer Support** | /dashboard/customer-support/* | Support tickets, FAQ management |
+| **Host** | /dashboard/host/* | Tours, bookings, earnings, performance |
+| **Guide** | ❌ None (public frontend only) | /guide/dashboard — listings, bookings, real-time updates |
+| **Traveler** | ❌ None (public site only) | Browse, book, profile, favorites, chat |
 
-RBAC coverage lives in two backend suites worth knowing about:
+### Dashboard Routes by Role
 
-- `backend/tests/test_roles.py` — the role hierarchy, `has_access()` guards, and the
-  self-registerable / admin-assignable allow-lists.
-- `backend/tests/test_rbac.py` — end-to-end checks that a public signup cannot mint a
-  privileged role, and that `GET /api/v1/guide/me` is reachable by `guide` and `admin`
-  only (the dashboard does not consume this endpoint).
+#### 👑 Admin Console
+- /admin — Admin overview
+- /admin/platform — Platform-wide overview
+- /admin/hosts — Manage hosts
+- /admin/guides — Manage guides
+- /admin/host-applications — Review host applications
+- /admin/support-tickets — View all support tickets
+- /admin/hierarchy — Role hierarchy
+- /admin/intelligence — Platform intelligence
+- /admin/analytics — Analytics dashboard
+- /admin/revenue — Revenue reports
+- /admin/settings — System settings
+- /admin/content — Content management
 
-### Key Frontend Features
+#### 🏔️ Regional Head Console
+- /regional-head — Regional overview
+- /regional-head/applications — Host applications (region-specific)
+- /regional-head/region — Regional information
 
-- **Centralized Search Index** — `frontend/src/utils/searchIndex.ts`: unified index across 5 cities' experiences, guides, cities, categories; word-by-word filtering with smart scoring
-- **Enhanced Search Modal** — `frontend/src/components/common/Header.tsx`: rich suggestion cards (experiences with images/ratings/prices, cities, categories, guides), scrollable results
-- **Maila Dai Widget** — `frontend/src/components/common/MailaDaiWidget.tsx`: floating bottom-left chat, resizable (300-600px), minimizable, streaming AI via `/api/v1/ai/chat/stream`
-- **Support Widget** — `frontend/src/components/common/SupportWidget.tsx`: floating bottom-right ticket submission
-- **AI Chat (Maila Dai)** — `frontend/src/pages/MailaDaiChatPage.tsx` with streaming via `POST /api/v1/ai/chat/stream`, fallback to non-streaming `/api/v1/ai/chat`
-- **Advanced Search** — `frontend/src/pages/SearchPage.tsx` with city/category/price filters, sort options, URL-synced query params
-- **Host Application Wizard** — `frontend/src/pages/host/HostApplicationWizard.tsx`: 5-step form, auto-save to `localStorage`, file uploads (PDF/JPG/PNG, max 10MB), validation per step
-- **Host Center** — `frontend/src/pages/HostCenterPage.tsx`: resource hub with 6 guide categories
-- **Become a Host** — `frontend/src/pages/host/BecomeHostPage.tsx`: landing page with Originals templates, testimonials, FAQ accordion
-- **User Dashboard** — `frontend/src/pages/user/*`: Profile, Favorites, Chat, Bookings, Account Settings
-- **Guide Pages** — `frontend/src/pages/guide/*`: Guide Bookings, Become Guide
+#### 🎧 Customer Support Console
+- /customer-support — Support overview
+- /customer-support/tickets — Support tickets
+- /customer-support/faq — FAQ management
 
-### AI Chat Providers
-- **Ollama** (recommended for local, privacy-friendly usage)
-  - Install and run: `brew install ollama && ollama serve && ollama pull llama3.2`
-  - Model configured via `OLLAMA_MODEL` (default: `llama3.2:latest`)
-- **OpenAI**: set `OPENAI_API_KEY` to enable
-- **AI Provider**: set `AI_PROVIDER=auto` (default), `ollama`, or `openai`
-- **Maila Dai** — the platform's AI assistant with Kathmandu-specific knowledge:
-  - Live weather (via Open-Meteo)
-  - Local time (UTC+5:45)
-  - Food recommendations (Newari cuisine, momos, thukpa)
-  - Culture & heritage walk suggestions
-  - Adventure ideas (hikes, paragliding, viewpoints)
-  - Streaming responses via `/api/v1/ai/chat/stream`
+#### ✍️ Content Manager Console
+- /content-manager — Content overview
+- /content-manager/pages — Manage pages
+- /content-manager/blog — Blog management
+- /content-manager/guides-content — Guides content
+- /content-manager/media — Media library
+- /content-manager/seo — SEO settings
 
-### API Endpoints
-- Base: `/api/v1`
-- Auth: `/api/v1/auth/*`
-- Bookings: `/api/v1/bookings/*`
-- Profile: `/api/v1/profile/*`
-- AI: `/api/v1/ai/chat` (non-streaming) and `/api/v1/ai/chat/stream` (streaming)
-- Admin: `/api/v1/admin/*`
-- Content: `/api/v1/content/*`
-- Operations: `/api/v1/operations/*`
-- Host: `/api/v1/host/*`
-- Guide: `/api/v1/guide/*`
-- Host Applications: `/api/v1/host-applications/*`
+#### 🏠 Host Console
+- /host — Host overview
+- /host/guides — Manage guide profiles
+- /host/tours — Manage tours
+- /host/bookings — View bookings
+- /host/earnings — Earnings dashboard
+- /host/performance — Performance metrics
+
+#### 🧑‍💼 Guide Dashboard (Public Frontend)
+- /guide/dashboard — Live stats, booking requests, capacity overview
+- /guide/onboarding — 4-step onboarding wizard
+- /guide/listings — Manage own listings
+- /guide/listings/new — Create new listing
+- /guide/listings/:id/edit — Edit listing
+- /guide/bookings — Full booking request list
+
+### Role Assignment During Registration
+
+Self-registration is server-side allow-listed to 	raveler and host only. Elevated roles (guide, dmin, content-manager, egional-head, customer-support) are granted by an admin via PATCH /api/v1/admin/users/{id} or by the seed scripts.
 
 ---
 
-## Database Schema (Users Table)
+## 🌐 API Endpoints
 
-The users table includes the following fields:
+Base path: /api/v1
+
+| Endpoint Group | Routes | Description |
+|---------------|--------|-------------|
+| **Authentication** | /api/v1/auth/* | Login, register, OAuth (Google/Facebook), password reset |
+| **Bookings** | /api/v1/bookings/* | Create, view, accept/reject/complete bookings |
+| **Profile** | /api/v1/profile/* | User profile, avatar, bookmarks, settings |
+| **AI Chat** | /api/v1/ai/chat / /api/v1/ai/chat/stream | Maila Dai AI assistant (non-streaming & streaming) |
+| **Admin** | /api/v1/admin/* | User management, role assignment, analytics |
+| **Content** | /api/v1/content/* | Pages, blog, media, SEO |
+| **Operations** | /api/v1/operations/* | Platform operations |
+| **Host** | /api/v1/host/* | Host tours, bookings, earnings |
+| **Guide** | /api/v1/guide/* | Guide dashboard, listings, onboarding, updates |
+| **Host Applications** | /api/v1/host-applications/* | Host application submission & review |
+
+View the interactive API documentation at http://localhost:8000/api/v1/docs when the backend is running.
+
+---
+
+## 🗄 Database Schema (Users Table)
 
 | Field | Type | Description |
 |-------|------|-------------|
 | id | Integer | Primary key |
 | email | String | Unique, indexed, required |
-| firstName | String | Optional |
+| irstName | String | Optional |
 | lastName | String | Optional |
-| hashed_password | String | Required, stored as hash |
+| hashed_password | String | Required, bcrypt hash |
 | phone | String | Optional |
-| role | String | Default: "traveler" - see [User Roles](#user-roles--permissions). Validated server-side against an allow-list; unknown values are rejected. |
-| region | String | For regional heads (e.g., "Kathmandu Valley") |
-| bio | String | User biography |
-| avatar_url | String | Profile image URL |
-| is_active | Boolean | Default: true |
+| ole | String | Default: 	raveler (server-side allow-listed) |
+| egion | String | For regional heads (e.g., "Kathmandu Valley") |
+| io | String | User biography |
+| vatar_url | String | Profile image URL |
+| is_active | Boolean | Default: 	rue |
 | created_at | DateTime | Auto-generated |
-| updated_at | DateTime | Auto-updated |
+| updated_at | DateTime | Auto-updated
 
 ---
 
-## Deployment
+## 📦 Deployment
 
-Full instructions live in [DEPLOYMENT.md](./DEPLOYMENT.md).
+Full deployment instructions are in [DEPLOYMENT.md](./DEPLOYMENT.md).
 
-- **Frontend**: Vercel — root directory `frontend`, build command `npm run build`, output `dist`.
-- **Dashboard**: Vercel (separate project) — root directory `dashboard`.
-- **Backend**: Render blueprint (`render.yaml`, Dockerfile at `backend/Dockerfile`), health check `/health`.
-- **Database**: Supabase PostgreSQL via `DATABASE_URL`.
-- **Docker**: `docker-compose up -d` starts db + backend + frontend + dashboard locally.
+### Deployment Targets
 
----
+| Service | Platform | Build Command | Output |
+|---------|----------|---------------|--------|
+| **Frontend** | Vercel | 
+pm run build | dist/ |
+| **Dashboard** | Vercel (separate project) | 
+pm run build | dist/ |
+| **Backend** | Render | Dockerfile | Container |
+| **Database** | Supabase PostgreSQL | — | —
 
-## Contributing
+### Docker (Local)
 
-1. Fork the repo
-2. Create a feature branch: `git checkout -b feature/your-feature`
-3. Commit changes with conventional commits
-4. Push and open a Pull Request
+`ash
+docker-compose up -d
+`
 
-Code quality: run `npm run typecheck` and `npm run lint`. Backend checks: `cd backend && ./scripts/run_checks.sh`.
-
----
-
-## Security
-
-The complete security guide and pre-deployment checklist live in [SECURITY.md](./SECURITY.md).
-
-- Do not commit secrets or .env files
-- Password hashing (bcrypt) for all user passwords
-- JWT tokens with configurable expiration (default: 30 min access, 7 days refresh)
-- Role allow-lists enforced server-side: self-registration is clamped to
-  `traveler`/`host`, and admin role changes are validated (no mass assignment of
-  `hashed_password`)
-- Role checks live in the API layer (`require_role`), not just the dashboard UI
-- Production hard-fails: default `SECRET_KEY`, non-HTTPS CORS origins, dev seeding
-- Default credentials are for development only — change them in production!
-
-## Documentation Map
-
-- [DEPLOYMENT.md](./DEPLOYMENT.md) — Vercel/Render/Supabase/Docker deployment
-- [SECURITY.md](./SECURITY.md) — security implementation and checklist
-- [docs/](./docs/) — architecture, folder structure, development setup, API docs
-- [dashboard/docs/](./dashboard/docs/) — dashboard roles, routing, permissions, UX
-- [backend/docs/](./backend/docs/) — backend guides and API contract
-- [documents/](./documents/) — PRD and technical architecture
+Starts database, backend, frontend, and dashboard locally.
 
 ---
 
-## License
+## 🤝 Contributing
 
-This project is licensed under MIT. See the LICENSE file for details.
+We welcome contributions! Please follow these steps:
+
+1. **Fork** the repository
+2. **Create a feature branch:** git checkout -b feature/your-feature-name
+3. **Make your changes** and commit with conventional commits (e.g., eat:, ix:, docs:)
+4. **Push to your fork:** git push origin feature/your-feature-name
+5. **Open a Pull Request** against main
+
+### Code Quality
+
+`ash
+# Frontend linting & type checking
+npm run lint
+npm run typecheck
+
+# Backend checks
+cd backend
+./scripts/run_checks.sh
+`
+
+### Testing
+
+| Command | Scope |
+|---------|-------|
+| 
+pm test | Full test suite |
+| 
+pm run test:frontend | Frontend (Vitest) |
+| 
+pm run test:backend | Backend (pytest) |
+| 
+pm run test:dashboard | Dashboard (Vitest) |
+| 
+pm run test:e2e | End-to-end (Playwright)
 
 ---
+
+## 🔒 Security
+
+For the complete security implementation and pre-deployment checklist, see [SECURITY.md](./SECURITY.md).
+
+### Key Security Features
+
+- 🔐 **Password Hashing** — bcrypt for all user passwords
+- 🎫 **JWT Authentication** — Configurable expiration (30 min access, 7 days refresh)
+- 🛡️ **RBAC Enforcement** — Server-side role allow-lists; self-registration clamped to 	raveler/host
+- 🚫 **No Secret Commits** — .env files never committed; production hard-fails on default SECRET_KEY
+- 🔐 **Role Checks in API Layer** — equire_role enforced server-side, not just in UI
+- 🌐 **CORS & HTTPS** — Production requires HTTPS origins
+
+---
+
+## 📚 Documentation Map
+
+| Document | Description |
+|----------|-------------|
+| [DEPLOYMENT.md](./DEPLOYMENT.md) | Vercel / Render / Supabase / Docker deployment |
+| [SECURITY.md](./SECURITY.md) | Security implementation & pre-deployment checklist |
+| [docs/](./docs/) | Architecture, folder structure, development setup, API docs |
+| [dashboard/docs/](./dashboard/docs/) | Dashboard roles, routing, permissions, UX |
+| [ackend/docs/](./backend/docs/) | Backend guides and API contract |
+| [documents/](./documents/) | PRD and technical architecture
+
+---
+
+## 📄 License
+
+This project is licensed under the **MIT License**. See the [LICENSE](./LICENSE) file for details.
+
+---
+
+<div align="center">
+
+**Built with ❤️ for travelers and local guides in Nepal**
+
+[⭐ Star this repo](https://github.com/aum010/Guides-Nepal-Mobile/stargazers) • [🍴 Fork it](https://github.com/aum010/Guides-Nepal-Mobile/fork) • [🐛 Report an issue](https://github.com/aum010/Guides-Nepal-Mobile/issues)
+
+</div>
 
 **Last updated:** 2026-10-08  
 **Version:** 1.3.0
-#   G u i d e s - N e p a l - M o b i l e  
- 
